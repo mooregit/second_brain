@@ -63,21 +63,37 @@ Local-first inbox for turning raw notes into structured memories, tasks, decisio
    POSTGRES_PASSWORD=secondbrain
    BACKEND_PORT=8001
    FRONTEND_PORT=5174
+   WEB_PORT=80
+   PUBLIC_API_BASE_URL=http://secondbrain/api
    OLLAMA_BASE_URL=http://localhost:11434
    ```
 
-5. Start the full app.
+5. Add the local hostname.
+
+   ```bash
+   ./scripts/setup-local-hostname.sh
+   ```
+
+   This adds the following line to `/etc/hosts`:
+
+   ```text
+   127.0.0.1 secondbrain
+   ```
+
+6. Start the full app.
 
    ```bash
    docker compose -f docker-compose.dev.yml up --build
    ```
 
-6. Open the app.
+7. Open the app.
 
-   - Frontend: http://localhost:5174
+   - App: http://secondbrain
+   - Frontend direct port: http://localhost:5174
    - Backend health: http://localhost:8001/health
+   - Backend through proxy: http://secondbrain/health
 
-7. Verify database setup.
+8. Verify database setup.
 
    ```bash
    docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
@@ -87,8 +103,89 @@ Local-first inbox for turning raw notes into structured memories, tasks, decisio
 If ports are already in use, override them:
 
 ```bash
-BACKEND_PORT=8002 FRONTEND_PORT=5175 docker compose -f docker-compose.dev.yml up --build
+BACKEND_PORT=8002 FRONTEND_PORT=5175 WEB_PORT=8080 docker compose -f docker-compose.dev.yml up --build
 ```
+
+If `WEB_PORT` is not `80`, open `http://secondbrain:<WEB_PORT>`.
+
+## Platform Notes
+
+### macOS
+
+Install prerequisites:
+
+- Install Docker Desktop for Mac and make sure it is running.
+- Install Git if it is not already available.
+- Install Ollama for macOS and start it.
+
+Pull the local models:
+
+```bash
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+Clone and start the app:
+
+```bash
+git clone https://github.com/mooregit/second_brain.git
+cd second_brain
+cp .env.example .env
+./scripts/setup-local-hostname.sh
+docker compose -f docker-compose.dev.yml up --build
+```
+
+The hostname script appends `127.0.0.1 secondbrain` to `/etc/hosts` and will ask for your macOS password through `sudo`.
+
+Open:
+
+- App: http://secondbrain
+- Backend health: http://secondbrain/health
+
+### Windows
+
+Install prerequisites:
+
+- Install Docker Desktop for Windows and make sure it is running.
+- Enable WSL 2 when Docker Desktop prompts for it.
+- Install Git for Windows.
+- Install Ollama for Windows and start it.
+
+Pull the local models in PowerShell:
+
+```powershell
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+Clone and start the app from PowerShell:
+
+```powershell
+git clone https://github.com/mooregit/second_brain.git
+cd second_brain
+copy .env.example .env
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Add the local hostname by opening PowerShell as Administrator and running:
+
+```powershell
+Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 secondbrain"
+```
+
+Open:
+
+- App: http://secondbrain
+- Backend health: http://secondbrain/health
+
+If port `80` is already used on Windows, start with another web port:
+
+```powershell
+$env:WEB_PORT=8080
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Then open `http://secondbrain:8080`.
 
 ## Run With Docker Compose
 
@@ -111,6 +208,7 @@ docker compose -f docker-compose.dev.yml up --build
 
 Open:
 
+- App: http://secondbrain
 - Frontend: http://localhost:5174
 - Backend: http://localhost:8001
 
@@ -136,6 +234,12 @@ The frontend listens on port `5173` inside the container and maps to host port `
 
 ```bash
 FRONTEND_PORT=5175 docker compose -f docker-compose.dev.yml up --build
+```
+
+The nginx web proxy listens on port `80` by default and maps `http://secondbrain` to the frontend, with `/api/*` routed to the backend. If port `80` is already in use, override it:
+
+```bash
+WEB_PORT=8080 docker compose -f docker-compose.dev.yml up --build
 ```
 
 The compose stack uses `pgvector/pgvector:pg16` and runs this on first database initialization:

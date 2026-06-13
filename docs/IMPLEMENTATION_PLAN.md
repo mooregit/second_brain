@@ -171,6 +171,7 @@ docker compose -f docker-compose.dev.yml up --build
 
 Open:
 
+- App: `http://secondbrain`
 - Frontend: `http://localhost:5174`
 - Backend: `http://localhost:8001`
 - Postgres: `localhost:5432`
