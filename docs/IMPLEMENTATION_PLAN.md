@@ -171,8 +171,8 @@ docker compose -f docker-compose.dev.yml up --build
 
 Open:
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:5174`
+- Backend: `http://localhost:8001`
 - Postgres: `localhost:5432`
 
 Backend without Docker:
