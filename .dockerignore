@@ -1,0 +1,11 @@
+.env
+**/.venv
+**/__pycache__
+**/*.pyc
+frontend/node_modules
+frontend/dist
+data/sqlite
+data/uploads/*
+data/inbox/*
+.git
+
