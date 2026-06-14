@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Loader2, Play } from 'lucide-react';
 import { getItem, processItem } from '../api/items';
 import { patchMemory } from '../api/memories';
-import { patchIdea, patchQuestion, patchTask } from '../api/review';
+import { createIdea, createQuestion, createTask, patchIdea, patchQuestion, patchTask } from '../api/review';
 import ExtractionReview, { ExtractionReviewPayload } from '../components/ExtractionReview';
 
 export default function ItemDetail() {
@@ -18,16 +18,34 @@ export default function ItemDetail() {
     mutationFn: async ({ memoryId, payload }: { memoryId: string; payload: ExtractionReviewPayload }) => {
       await patchMemory(memoryId, { summary: payload.summary, tags: payload.tags });
       await Promise.all([
-        ...payload.tasks.map((task) =>
-          patchTask(task.id, {
-            title: task.title,
-            description: task.description.trim() || null,
-            priority: task.priority || null,
-            status: task.status
-          })
-        ),
-        ...payload.ideas.map((idea) => patchIdea(idea.id, { body: idea.body })),
-        ...payload.open_questions.map((question) => patchQuestion(question.id, { question: question.question, status: question.status }))
+        ...payload.tasks
+          .filter((task) => task.title.trim())
+          .map((task) =>
+            task.isNew
+              ? createTask({
+                  memory_id: memoryId,
+                  title: task.title.trim(),
+                  description: task.description.trim() || null,
+                  priority: task.priority || null,
+                  status: task.status
+                })
+              : patchTask(task.id, {
+                  title: task.title,
+                  description: task.description.trim() || null,
+                  priority: task.priority || null,
+                  status: task.status
+                })
+          ),
+        ...payload.ideas
+          .filter((idea) => idea.body.trim())
+          .map((idea) => (idea.isNew ? createIdea({ memory_id: memoryId, body: idea.body.trim() }) : patchIdea(idea.id, { body: idea.body }))),
+        ...payload.open_questions
+          .filter((question) => question.question.trim())
+          .map((question) =>
+            question.isNew
+              ? createQuestion({ memory_id: memoryId, question: question.question.trim(), status: question.status })
+              : patchQuestion(question.id, { question: question.question, status: question.status })
+          )
       ]);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['item', id] })

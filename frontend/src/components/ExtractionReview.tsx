@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Plus, Save, X } from 'lucide-react';
 import type { Memory } from '../api/items';
 
 type EditableTask = {
   id: string;
+  isNew?: boolean;
   title: string;
   description: string;
   priority: string;
@@ -12,11 +13,13 @@ type EditableTask = {
 
 type EditableIdea = {
   id: string;
+  isNew?: boolean;
   body: string;
 };
 
 type EditableQuestion = {
   id: string;
+  isNew?: boolean;
   question: string;
   status: string;
 };
@@ -91,15 +94,29 @@ export default function ExtractionReview({
       </label>
       <div className="grid gap-4 xl:grid-cols-3">
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Tasks</h3>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Tasks</h3>
+            <button type="button" onClick={addTask} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700" title="Add task">
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
           <ul className="space-y-2">
             {tasks.map((task, index) => (
               <li key={task.id} className="space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
-                <input
-                  className="w-full rounded-md border border-slate-300 px-2 py-1 font-medium"
-                  value={task.title}
-                  onChange={(event) => updateTask(index, { title: event.target.value })}
-                />
+                <div className="flex items-start gap-2">
+                  <input
+                    className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 font-medium"
+                    value={task.title}
+                    onChange={(event) => updateTask(index, { title: event.target.value })}
+                    placeholder="Task title"
+                  />
+                  {task.isNew && (
+                    <button type="button" onClick={() => removeTask(index)} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Remove unsaved task">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
                 <textarea
                   className="h-20 w-full rounded-md border border-slate-300 px-2 py-1"
                   value={task.description}
@@ -125,25 +142,57 @@ export default function ExtractionReview({
           </ul>
         </div>
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Ideas</h3>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Ideas</h3>
+            <button type="button" onClick={addIdea} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700" title="Add idea">
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
           <ul className="space-y-2">
             {ideas.map((idea, index) => (
-              <li key={idea.id} className="rounded-md border border-slate-200 bg-white p-3 text-sm">
-                <textarea className="h-28 w-full rounded-md border border-slate-300 px-2 py-1" value={idea.body} onChange={(event) => updateIdea(index, event.target.value)} />
+              <li key={idea.id} className="space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <textarea
+                    className="h-28 min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1"
+                    value={idea.body}
+                    onChange={(event) => updateIdea(index, event.target.value)}
+                    placeholder="Idea"
+                  />
+                  {idea.isNew && (
+                    <button type="button" onClick={() => removeIdea(index)} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Remove unsaved idea">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         </div>
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Open Questions</h3>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Open Questions</h3>
+            <button type="button" onClick={addQuestion} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700" title="Add open question">
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
           <ul className="space-y-2">
             {questions.map((question, index) => (
               <li key={question.id} className="space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
-                <textarea
-                  className="h-24 w-full rounded-md border border-slate-300 px-2 py-1"
-                  value={question.question}
-                  onChange={(event) => updateQuestion(index, { question: event.target.value })}
-                />
+                <div className="flex items-start gap-2">
+                  <textarea
+                    className="h-24 min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1"
+                    value={question.question}
+                    onChange={(event) => updateQuestion(index, { question: event.target.value })}
+                    placeholder="Open question"
+                  />
+                  {question.isNew && (
+                    <button type="button" onClick={() => removeQuestion(index)} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Remove unsaved question">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
                 <select className="w-full rounded-md border border-slate-300 px-2 py-1" value={question.status} onChange={(event) => updateQuestion(index, { status: event.target.value })}>
                   <option value="open">Open</option>
                   <option value="answered">Answered</option>
@@ -161,12 +210,36 @@ export default function ExtractionReview({
     setTasks((current) => current.map((task, taskIndex) => (taskIndex === index ? { ...task, ...patch } : task)));
   }
 
+  function addTask() {
+    setTasks((current) => [...current, { id: tempId('task'), isNew: true, title: '', description: '', priority: '', status: 'open' }]);
+  }
+
+  function removeTask(index: number) {
+    setTasks((current) => current.filter((_, taskIndex) => taskIndex !== index));
+  }
+
   function updateIdea(index: number, body: string) {
     setIdeas((current) => current.map((idea, ideaIndex) => (ideaIndex === index ? { ...idea, body } : idea)));
   }
 
+  function addIdea() {
+    setIdeas((current) => [...current, { id: tempId('idea'), isNew: true, body: '' }]);
+  }
+
+  function removeIdea(index: number) {
+    setIdeas((current) => current.filter((_, ideaIndex) => ideaIndex !== index));
+  }
+
   function updateQuestion(index: number, patch: Partial<EditableQuestion>) {
     setQuestions((current) => current.map((question, questionIndex) => (questionIndex === index ? { ...question, ...patch } : question)));
+  }
+
+  function addQuestion() {
+    setQuestions((current) => [...current, { id: tempId('question'), isNew: true, question: '', status: 'open' }]);
+  }
+
+  function removeQuestion(index: number) {
+    setQuestions((current) => current.filter((_, questionIndex) => questionIndex !== index));
   }
 }
 
@@ -180,3 +253,6 @@ function toEditableTask(task: Memory['tasks'][number]): EditableTask {
   };
 }
 
+function tempId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
