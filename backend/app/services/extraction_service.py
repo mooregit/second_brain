@@ -144,9 +144,10 @@ class ExtractionService:
 
     def _get_or_create_project(self, name: str) -> Project:
         normalized = name.strip()
-        project = self.db.scalar(select(Project).where(Project.name == normalized))
-        if project:
-            return project
+        lookup = self._normalize_lookup(normalized)
+        for project in self.db.scalars(select(Project)).all():
+            if self._normalize_lookup(project.name) == lookup:
+                return project
         project = Project(name=normalized)
         self.db.add(project)
         self.db.flush()
@@ -154,13 +155,20 @@ class ExtractionService:
 
     def _get_or_create_tag(self, name: str) -> Tag:
         normalized = name.strip()
-        tag = self.db.scalar(select(Tag).where(Tag.name == normalized))
-        if tag:
-            return tag
+        lookup = " ".join(normalized.lower().split())
+        for tag in self.db.scalars(select(Tag)).all():
+            if " ".join(tag.name.lower().split()) == lookup:
+                return tag
         tag = Tag(name=normalized)
         self.db.add(tag)
         self.db.flush()
         return tag
+
+    def _normalize_lookup(self, value: str) -> str:
+        normalized = " ".join(value.lower().strip().split())
+        if normalized.endswith(" project"):
+            normalized = normalized.removesuffix(" project").strip()
+        return normalized
 
     def _prompt(self, filename: str) -> str:
         return (self.settings.prompt_dir / filename).read_text(encoding="utf-8")

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { Play } from 'lucide-react';
+import { Loader2, Play } from 'lucide-react';
 import { getItem, processItem } from '../api/items';
 import { patchMemory } from '../api/memories';
 import ExtractionReview from '../components/ExtractionReview';
@@ -35,10 +35,16 @@ export default function ItemDetail() {
             className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"
             title="Process item"
           >
-            <Play size={16} />
-            Process
+            {processMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+            {processMutation.isPending ? 'Processing' : 'Process'}
           </button>
         </div>
+        {processMutation.isPending && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <Loader2 size={16} className="animate-spin" />
+            Extracting structured memories with Ollama. This can take a minute for local models.
+          </div>
+        )}
         <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm text-slate-800">{item.data.item.body_text}</pre>
         {processMutation.error && <p className="mt-3 text-sm text-red-700">{processMutation.error.message}</p>}
       </section>
@@ -50,4 +56,3 @@ export default function ItemDetail() {
     </div>
   );
 }
-

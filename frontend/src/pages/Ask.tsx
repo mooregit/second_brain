@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Send } from 'lucide-react';
+import { Loader2, Send } from 'lucide-react';
 import { askQuestion } from '../api/ask';
 import SourceLink from '../components/SourceLink';
 
@@ -23,17 +23,25 @@ export default function Ask() {
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="What are my open BetRight tasks?"
+            disabled={ask.isPending}
           />
           <button className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white" disabled={ask.isPending}>
-            <Send size={16} />
-            Ask
+            {ask.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            {ask.isPending ? 'Asking' : 'Ask'}
           </button>
         </form>
+        {ask.isPending && (
+          <div className="mt-5 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <Loader2 size={16} className="animate-spin" />
+            Searching memories and asking the local model.
+          </div>
+        )}
         {ask.data && <div className="mt-5 whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm leading-6">{ask.data.answer}</div>}
         {ask.error && <p className="mt-3 text-sm text-red-700">{ask.error.message}</p>}
       </section>
       <aside className="rounded-md border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-base font-semibold">Sources</h2>
+        {ask.isPending && <div className="text-sm text-slate-500">Waiting for retrieved sources...</div>}
         <ul className="space-y-3">
           {ask.data?.sources.map((source) => (
             <li key={`${source.owner_type}:${source.owner_id}`} className="text-sm">
@@ -46,4 +54,3 @@ export default function Ask() {
     </div>
   );
 }
-
