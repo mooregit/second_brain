@@ -211,7 +211,7 @@ export default function ExtractionReview({
   }
 
   function addTask() {
-    setTasks((current) => [...current, { id: tempId('task'), isNew: true, title: '', description: '', priority: '', status: 'open' }]);
+    setTasks((current) => [{ id: tempId('task'), isNew: true, title: '', description: '', priority: '', status: 'open' }, ...current]);
   }
 
   function removeTask(index: number) {
@@ -223,7 +223,7 @@ export default function ExtractionReview({
   }
 
   function addIdea() {
-    setIdeas((current) => [...current, { id: tempId('idea'), isNew: true, body: '' }]);
+    setIdeas((current) => [{ id: tempId('idea'), isNew: true, body: '' }, ...current]);
   }
 
   function removeIdea(index: number) {
@@ -235,7 +235,7 @@ export default function ExtractionReview({
   }
 
   function addQuestion() {
-    setQuestions((current) => [...current, { id: tempId('question'), isNew: true, question: '', status: 'open' }]);
+    setQuestions((current) => [{ id: tempId('question'), isNew: true, question: '', status: 'open' }, ...current]);
   }
 
   function removeQuestion(index: number) {
