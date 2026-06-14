@@ -1,4 +1,5 @@
 from app.models.audit_log import AuditLog
+from app.models.ask_run import AskRun
 from app.models.decision import Decision
 from app.models.draft_reply import DraftReply
 from app.models.embedding import Embedding
@@ -18,6 +19,7 @@ from app.models.task import Task
 __all__ = [
     "Embedding",
     "AuditLog",
+    "AskRun",
     "Decision",
     "DraftReply",
     "EmailMessage",
