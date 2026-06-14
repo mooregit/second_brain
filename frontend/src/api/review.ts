@@ -18,11 +18,26 @@ export type TaskCreate = {
 
 export type IdeaPatch = {
   body?: string;
+  status?: string;
 };
 
 export type IdeaCreate = {
   memory_id: string;
   body: string;
+  status?: string;
+};
+
+export type DecisionPatch = {
+  title?: string;
+  rationale?: string | null;
+  confidence?: number;
+};
+
+export type DecisionCreate = {
+  memory_id: string;
+  title: string;
+  rationale?: string | null;
+  confidence?: number;
 };
 
 export type QuestionPatch = {
@@ -59,6 +74,20 @@ export function createIdea(payload: IdeaCreate) {
 
 export function patchIdea(id: string, payload: IdeaPatch) {
   return api<Memory['ideas'][number]>(`/ideas/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export function createDecision(payload: DecisionCreate) {
+  return api<Memory['decisions'][number]>('/decisions', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export function patchDecision(id: string, payload: DecisionPatch) {
+  return api<Memory['decisions'][number]>(`/decisions/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload)
   });

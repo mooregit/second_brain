@@ -28,6 +28,6 @@ class Memory(TimestampMixin, Base):
     tags: Mapped[list["Tag"]] = relationship(secondary=memory_tags, back_populates="memories")
     tasks: Mapped[list["Task"]] = relationship(back_populates="memory", cascade="all, delete-orphan")
     ideas: Mapped[list["Idea"]] = relationship(back_populates="memory", cascade="all, delete-orphan")
+    decisions: Mapped[list["Decision"]] = relationship(back_populates="memory", cascade="all, delete-orphan")
     open_questions: Mapped[list["OpenQuestion"]] = relationship(back_populates="memory", cascade="all, delete-orphan")
     relationships: Mapped[list["Relationship"]] = relationship(back_populates="memory", cascade="all, delete-orphan")
-

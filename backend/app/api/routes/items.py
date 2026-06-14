@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models import Memory, RawItem
+from app.models import Memory, ProcessingRun, RawItem
 from app.schemas.raw_item import ManualItemCreate, RawItemOut
 from app.services.extraction_service import ExtractionService
 
@@ -53,10 +53,14 @@ def get_item(item_id: str, db: Session = Depends(get_db)) -> dict:
     memories = db.scalars(
         select(Memory)
         .where(Memory.raw_item_id == item_id)
-        .options(selectinload(Memory.tags), selectinload(Memory.tasks), selectinload(Memory.ideas), selectinload(Memory.open_questions))
+        .options(selectinload(Memory.tags), selectinload(Memory.tasks), selectinload(Memory.ideas), selectinload(Memory.decisions), selectinload(Memory.open_questions))
     ).all()
+    latest_run = db.scalars(
+        select(ProcessingRun).where(ProcessingRun.raw_item_id == item_id).order_by(ProcessingRun.started_at.desc())
+    ).first()
     return {
         "item": RawItemOut.model_validate(item).model_dump(mode="json"),
+        "latest_processing_run": processing_run_dict(latest_run) if latest_run else None,
         "memories": [
             {
                 "id": memory.id,
@@ -77,7 +81,20 @@ def get_item(item_id: str, db: Session = Depends(get_db)) -> dict:
                     }
                     for task in memory.tasks
                 ],
-                "ideas": [{"id": idea.id, "body": idea.body, "source_raw_item_id": idea.source_raw_item_id} for idea in memory.ideas],
+                "ideas": [
+                    {"id": idea.id, "body": idea.body, "status": idea.status, "source_raw_item_id": idea.source_raw_item_id}
+                    for idea in memory.ideas
+                ],
+                "decisions": [
+                    {
+                        "id": decision.id,
+                        "title": decision.title,
+                        "rationale": decision.rationale,
+                        "confidence": decision.confidence,
+                        "source_raw_item_id": decision.source_raw_item_id,
+                    }
+                    for decision in memory.decisions
+                ],
                 "open_questions": [
                     {
                         "id": question.id,
@@ -106,3 +123,29 @@ async def process_item(item_id: str, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"memory_id": memory.id, "status": item.status}
 
+
+def processing_run_dict(run: ProcessingRun) -> dict:
+    raw_output = run.raw_output or ""
+    original_output, repaired_output = split_repair_output(raw_output)
+    return {
+        "id": run.id,
+        "raw_item_id": run.raw_item_id,
+        "status": run.status,
+        "model": run.model,
+        "prompt_version": run.prompt_version,
+        "started_at": run.started_at.isoformat(),
+        "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+        "error": run.error,
+        "raw_output": raw_output,
+        "original_output": original_output,
+        "repaired_output": repaired_output,
+        "parsed_json": run.parsed_json,
+    }
+
+
+def split_repair_output(raw_output: str) -> tuple[str, str | None]:
+    marker = "\n\n--- repaired ---\n"
+    if marker not in raw_output:
+        return raw_output, None
+    original, repaired = raw_output.split(marker, 1)
+    return original, repaired

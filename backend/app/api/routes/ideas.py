@@ -16,11 +16,13 @@ logger = logging.getLogger(__name__)
 class IdeaCreate(BaseModel):
     memory_id: str
     body: str = Field(min_length=1)
+    status: str = "active"
     project_id: str | None = None
 
 
 class IdeaPatch(BaseModel):
     body: str | None = None
+    status: str | None = None
 
 
 def idea_dict(idea: Idea) -> dict:
@@ -29,6 +31,7 @@ def idea_dict(idea: Idea) -> dict:
         "memory_id": idea.memory_id,
         "project_id": idea.project_id,
         "body": idea.body,
+        "status": idea.status,
         "source_raw_item_id": idea.source_raw_item_id,
     }
 
@@ -50,6 +53,7 @@ async def create_idea(payload: IdeaCreate, db: Session = Depends(get_db)) -> dic
         memory_id=memory.id,
         project_id=payload.project_id or _project_id_from_memory(memory, db),
         body=body,
+        status=payload.status,
         source_raw_item_id=memory.raw_item_id,
     )
     db.add(idea)

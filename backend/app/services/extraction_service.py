@@ -139,6 +139,8 @@ class ExtractionService:
             await self.embedding_service.embed_owner("task", task.id, f"{task.title}\n{task.description or ''}")
         for idea in memory.ideas:
             await self.embedding_service.embed_owner("idea", idea.id, idea.body)
+        for decision in memory.decisions:
+            await self.embedding_service.embed_owner("decision", decision.id, f"{decision.title}\n{decision.rationale or ''}")
         for question in memory.open_questions:
             await self.embedding_service.embed_owner("open_question", question.id, question.question)
 

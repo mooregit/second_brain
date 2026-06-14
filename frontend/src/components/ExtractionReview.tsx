@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Plus, Save, X } from 'lucide-react';
+import { Archive, Loader2, Plus, Save, X } from 'lucide-react';
 import type { Memory } from '../api/items';
 
 type EditableTask = {
@@ -15,6 +15,15 @@ type EditableIdea = {
   id: string;
   isNew?: boolean;
   body: string;
+  status: string;
+};
+
+type EditableDecision = {
+  id: string;
+  isNew?: boolean;
+  title: string;
+  rationale: string;
+  confidence: number;
 };
 
 type EditableQuestion = {
@@ -29,6 +38,7 @@ export type ExtractionReviewPayload = {
   tags: string[];
   tasks: EditableTask[];
   ideas: EditableIdea[];
+  decisions: EditableDecision[];
   open_questions: EditableQuestion[];
 };
 
@@ -44,7 +54,8 @@ export default function ExtractionReview({
   const [summary, setSummary] = useState(memory.summary);
   const [tags, setTags] = useState(memory.tags.join(', '));
   const [tasks, setTasks] = useState<EditableTask[]>(() => memory.tasks.map(toEditableTask));
-  const [ideas, setIdeas] = useState<EditableIdea[]>(() => memory.ideas.map((idea) => ({ id: idea.id, body: idea.body })));
+  const [ideas, setIdeas] = useState<EditableIdea[]>(() => memory.ideas.map(toEditableIdea));
+  const [decisions, setDecisions] = useState<EditableDecision[]>(() => memory.decisions.map(toEditableDecision));
   const [questions, setQuestions] = useState<EditableQuestion[]>(() =>
     memory.open_questions.map((question) => ({ id: question.id, question: question.question, status: question.status }))
   );
@@ -53,7 +64,8 @@ export default function ExtractionReview({
     setSummary(memory.summary);
     setTags(memory.tags.join(', '));
     setTasks(memory.tasks.map(toEditableTask));
-    setIdeas(memory.ideas.map((idea) => ({ id: idea.id, body: idea.body })));
+    setIdeas(memory.ideas.map(toEditableIdea));
+    setDecisions(memory.decisions.map(toEditableDecision));
     setQuestions(memory.open_questions.map((question) => ({ id: question.id, question: question.question, status: question.status })));
   }, [memory]);
 
@@ -66,6 +78,7 @@ export default function ExtractionReview({
         .filter(Boolean),
       tasks,
       ideas,
+      decisions,
       open_questions: questions
     });
   }
@@ -92,7 +105,7 @@ export default function ExtractionReview({
         Tags
         <input className="mt-1 w-full rounded-md border border-slate-300 bg-white p-2" value={tags} onChange={(event) => setTags(event.target.value)} />
       </label>
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Tasks</h3>
@@ -114,6 +127,11 @@ export default function ExtractionReview({
                   {task.isNew && (
                     <button type="button" onClick={() => removeTask(index)} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Remove unsaved task">
                       <X size={14} />
+                    </button>
+                  )}
+                  {!task.isNew && task.status !== 'archived' && (
+                    <button type="button" onClick={() => updateTask(index, { status: 'archived' })} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Archive task">
+                      <Archive size={14} />
                     </button>
                   )}
                 </div>
@@ -156,7 +174,7 @@ export default function ExtractionReview({
                   <textarea
                     className="h-28 min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1"
                     value={idea.body}
-                    onChange={(event) => updateIdea(index, event.target.value)}
+                    onChange={(event) => updateIdea(index, { body: event.target.value })}
                     placeholder="Idea"
                   />
                   {idea.isNew && (
@@ -164,7 +182,62 @@ export default function ExtractionReview({
                       <X size={14} />
                     </button>
                   )}
+                  {!idea.isNew && idea.status !== 'archived' && (
+                    <button type="button" onClick={() => updateIdea(index, { status: 'archived' })} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Archive idea">
+                      <Archive size={14} />
+                    </button>
+                  )}
                 </div>
+                <select className="w-full rounded-md border border-slate-300 px-2 py-1" value={idea.status} onChange={(event) => updateIdea(index, { status: event.target.value })}>
+                  <option value="active">Active</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Decisions</h3>
+            <button type="button" onClick={addDecision} className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700" title="Add decision">
+              <Plus size={14} />
+              Add
+            </button>
+          </div>
+          <ul className="space-y-2">
+            {decisions.map((decision, index) => (
+              <li key={decision.id} className="space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <input
+                    className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 font-medium"
+                    value={decision.title}
+                    onChange={(event) => updateDecision(index, { title: event.target.value })}
+                    placeholder="Decision title"
+                  />
+                  {decision.isNew && (
+                    <button type="button" onClick={() => removeDecision(index)} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Remove unsaved decision">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  className="h-24 w-full rounded-md border border-slate-300 px-2 py-1"
+                  value={decision.rationale}
+                  onChange={(event) => updateDecision(index, { rationale: event.target.value })}
+                  placeholder="Rationale"
+                />
+                <label className="block text-xs font-medium text-slate-600">
+                  Confidence
+                  <input
+                    className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={decision.confidence}
+                    onChange={(event) => updateDecision(index, { confidence: Number(event.target.value) })}
+                  />
+                </label>
               </li>
             ))}
           </ul>
@@ -190,6 +263,11 @@ export default function ExtractionReview({
                   {question.isNew && (
                     <button type="button" onClick={() => removeQuestion(index)} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Remove unsaved question">
                       <X size={14} />
+                    </button>
+                  )}
+                  {!question.isNew && question.status !== 'archived' && (
+                    <button type="button" onClick={() => updateQuestion(index, { status: 'archived' })} className="rounded-md border border-slate-300 p-1.5 text-slate-600" title="Archive open question">
+                      <Archive size={14} />
                     </button>
                   )}
                 </div>
@@ -218,16 +296,28 @@ export default function ExtractionReview({
     setTasks((current) => current.filter((_, taskIndex) => taskIndex !== index));
   }
 
-  function updateIdea(index: number, body: string) {
-    setIdeas((current) => current.map((idea, ideaIndex) => (ideaIndex === index ? { ...idea, body } : idea)));
+  function updateIdea(index: number, patch: Partial<EditableIdea>) {
+    setIdeas((current) => current.map((idea, ideaIndex) => (ideaIndex === index ? { ...idea, ...patch } : idea)));
   }
 
   function addIdea() {
-    setIdeas((current) => [{ id: tempId('idea'), isNew: true, body: '' }, ...current]);
+    setIdeas((current) => [{ id: tempId('idea'), isNew: true, body: '', status: 'active' }, ...current]);
   }
 
   function removeIdea(index: number) {
     setIdeas((current) => current.filter((_, ideaIndex) => ideaIndex !== index));
+  }
+
+  function updateDecision(index: number, patch: Partial<EditableDecision>) {
+    setDecisions((current) => current.map((decision, decisionIndex) => (decisionIndex === index ? { ...decision, ...patch } : decision)));
+  }
+
+  function addDecision() {
+    setDecisions((current) => [{ id: tempId('decision'), isNew: true, title: '', rationale: '', confidence: 0.5 }, ...current]);
+  }
+
+  function removeDecision(index: number) {
+    setDecisions((current) => current.filter((_, decisionIndex) => decisionIndex !== index));
   }
 
   function updateQuestion(index: number, patch: Partial<EditableQuestion>) {
@@ -250,6 +340,23 @@ function toEditableTask(task: Memory['tasks'][number]): EditableTask {
     description: task.description ?? '',
     priority: task.priority ?? '',
     status: task.status
+  };
+}
+
+function toEditableIdea(idea: Memory['ideas'][number]): EditableIdea {
+  return {
+    id: idea.id,
+    body: idea.body,
+    status: idea.status
+  };
+}
+
+function toEditableDecision(decision: Memory['decisions'][number]): EditableDecision {
+  return {
+    id: decision.id,
+    title: decision.title,
+    rationale: decision.rationale ?? '',
+    confidence: decision.confidence
   };
 }
 

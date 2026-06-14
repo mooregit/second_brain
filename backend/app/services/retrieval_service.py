@@ -3,7 +3,7 @@ import math
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Embedding, Idea, Memory, OpenQuestion, RawItem, Task
+from app.models import Decision, Embedding, Idea, Memory, OpenQuestion, RawItem, Task
 from app.services.embedding_service import EmbeddingService
 
 
@@ -41,7 +41,13 @@ class RetrievalService:
             item = self.db.get(Idea, embedding.owner_id)
             if item:
                 title = item.body[:80]
-                text = f"Idea: {item.body}"
+                text = f"Idea: {item.body}\nStatus: {item.status}"
+                raw_item_id = item.source_raw_item_id
+        elif embedding.owner_type == "decision":
+            item = self.db.get(Decision, embedding.owner_id)
+            if item:
+                title = item.title
+                text = f"Decision: {item.title}\nRationale: {item.rationale or ''}\nConfidence: {item.confidence}"
                 raw_item_id = item.source_raw_item_id
         elif embedding.owner_type == "open_question":
             item = self.db.get(OpenQuestion, embedding.owner_id)
@@ -72,4 +78,3 @@ class RetrievalService:
         if not left_norm or not right_norm:
             return 0.0
         return dot / (left_norm * right_norm)
-

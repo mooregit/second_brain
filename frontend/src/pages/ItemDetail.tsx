@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Loader2, Play } from 'lucide-react';
 import { getItem, processItem } from '../api/items';
 import { patchMemory } from '../api/memories';
-import { createIdea, createQuestion, createTask, patchIdea, patchQuestion, patchTask } from '../api/review';
+import { createDecision, createIdea, createQuestion, createTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
 import ExtractionReview, { ExtractionReviewPayload } from '../components/ExtractionReview';
 
 export default function ItemDetail() {
@@ -38,7 +38,27 @@ export default function ItemDetail() {
           ),
         ...payload.ideas
           .filter((idea) => idea.body.trim())
-          .map((idea) => (idea.isNew ? createIdea({ memory_id: memoryId, body: idea.body.trim() }) : patchIdea(idea.id, { body: idea.body }))),
+          .map((idea) =>
+            idea.isNew
+              ? createIdea({ memory_id: memoryId, body: idea.body.trim(), status: idea.status })
+              : patchIdea(idea.id, { body: idea.body, status: idea.status })
+          ),
+        ...payload.decisions
+          .filter((decision) => decision.title.trim())
+          .map((decision) =>
+            decision.isNew
+              ? createDecision({
+                  memory_id: memoryId,
+                  title: decision.title.trim(),
+                  rationale: decision.rationale.trim() || null,
+                  confidence: decision.confidence
+                })
+              : patchDecision(decision.id, {
+                  title: decision.title,
+                  rationale: decision.rationale.trim() || null,
+                  confidence: decision.confidence
+                })
+          ),
         ...payload.open_questions
           .filter((question) => question.question.trim())
           .map((question) =>
@@ -81,6 +101,23 @@ export default function ItemDetail() {
         <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm text-slate-800">{item.data.item.body_text}</pre>
         {processMutation.error && <p className="mt-3 text-sm text-red-700">{processMutation.error.message}</p>}
       </section>
+      {item.data.latest_processing_run && (
+        <section className="rounded-md border border-slate-200 bg-white p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Extraction Diagnostics</h2>
+            <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+              <span className="rounded-md bg-slate-100 px-2 py-1">{item.data.latest_processing_run.status}</span>
+              <span className="rounded-md bg-slate-100 px-2 py-1">{item.data.latest_processing_run.model}</span>
+            </div>
+          </div>
+          {item.data.latest_processing_run.error && <p className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{item.data.latest_processing_run.error}</p>}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <DiagnosticBlock title="Original Output" value={item.data.latest_processing_run.original_output || item.data.latest_processing_run.raw_output} />
+            <DiagnosticBlock title="Repaired Output" value={item.data.latest_processing_run.repaired_output} empty="No repair attempt was stored for this run." />
+            <DiagnosticBlock title="Parsed JSON" value={formatJson(item.data.latest_processing_run.parsed_json)} className="lg:col-span-2" />
+          </div>
+        </section>
+      )}
       {item.data.memories.map((memory) => (
         <section key={memory.id} className="rounded-md border border-slate-200 bg-white p-4">
           <ExtractionReview
@@ -93,4 +130,18 @@ export default function ItemDetail() {
       {saveReviewMutation.error && <p className="text-sm text-red-700">{saveReviewMutation.error.message}</p>}
     </div>
   );
+}
+
+function DiagnosticBlock({ title, value, empty, className = '' }: { title: string; value: string | null | undefined; empty?: string; className?: string }) {
+  return (
+    <details className={`rounded-md border border-slate-200 bg-slate-50 p-3 ${className}`}>
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">{title}</summary>
+      <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap text-xs text-slate-800">{value || empty || 'Nothing stored.'}</pre>
+    </details>
+  );
+}
+
+function formatJson(value: unknown): string {
+  if (!value) return '';
+  return JSON.stringify(value, null, 2);
 }

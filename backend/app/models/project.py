@@ -14,5 +14,5 @@ class Project(TimestampMixin, Base):
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="project")
     ideas: Mapped[list["Idea"]] = relationship(back_populates="project")
+    decisions: Mapped[list["Decision"]] = relationship(back_populates="project")
     open_questions: Mapped[list["OpenQuestion"]] = relationship(back_populates="project")
-

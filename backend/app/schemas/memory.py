@@ -19,6 +19,17 @@ class TaskOut(BaseModel):
 class IdeaOut(BaseModel):
     id: str
     body: str
+    status: str
+    source_raw_item_id: str
+
+    model_config = {"from_attributes": True}
+
+
+class DecisionOut(BaseModel):
+    id: str
+    title: str
+    rationale: str | None = None
+    confidence: float
     source_raw_item_id: str
 
     model_config = {"from_attributes": True}
@@ -42,6 +53,7 @@ class MemoryOut(BaseModel):
     tags: list[str] = Field(default_factory=list)
     tasks: list[TaskOut] = Field(default_factory=list)
     ideas: list[IdeaOut] = Field(default_factory=list)
+    decisions: list[DecisionOut] = Field(default_factory=list)
     open_questions: list[QuestionOut] = Field(default_factory=list)
     created_at: datetime
 

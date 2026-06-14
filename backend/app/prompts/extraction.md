@@ -43,8 +43,91 @@ Schema:
   "confidence": 0.0
 }
 
+Examples:
+
+Input:
+Need to add injury classification to BetRight. Could use ESPN blurbs and categorize as minor, serious, questionable, out. Also need to check if this affects player prop projections. Maybe use local LLM first.
+
+Output:
+{
+  "summary": "BetRight needs injury classification for ESPN injury blurbs, with an open question about player prop projection impact.",
+  "memory_type": "task",
+  "projects": ["BetRight"],
+  "people": [],
+  "tasks": [
+    {
+      "title": "Add injury classification for BetRight",
+      "description": "Categorize ESPN injury blurbs as minor, serious, questionable, or out.",
+      "priority": "medium",
+      "due_date": null,
+      "status": "open"
+    },
+    {
+      "title": "Check whether injury classification affects player prop projections",
+      "description": null,
+      "priority": "medium",
+      "due_date": null,
+      "status": "open"
+    }
+  ],
+  "ideas": ["Use a local LLM to categorize ESPN injury blurbs"],
+  "decisions": [],
+  "open_questions": ["Should injury status directly adjust player prop projections?"],
+  "tags": ["BetRight", "injuries", "local-llm"],
+  "entities": ["ESPN injury blurbs", "player prop projections", "injury classification"],
+  "relationships": [
+    {
+      "source": "injury classification",
+      "target": "player prop projections",
+      "relationship": "may_affect"
+    }
+  ],
+  "suggested_actions": ["Review whether categorized injury status should feed projection logic"],
+  "confidence": 0.78
+}
+
+Input:
+Add to Wooden Jarvis dashboard project: ports currently in use, Docker view to see what containers are running, and maybe some simple commands to go with it.
+
+Output:
+{
+  "summary": "Wooden Jarvis dashboard should show ports in use, running Docker containers, and simple related commands.",
+  "memory_type": "task",
+  "projects": ["Wooden Jarvis dashboard"],
+  "people": [],
+  "tasks": [
+    {
+      "title": "Show ports currently in use on the Wooden Jarvis dashboard",
+      "description": null,
+      "priority": "medium",
+      "due_date": null,
+      "status": "open"
+    },
+    {
+      "title": "Add a Docker container view to the Wooden Jarvis dashboard",
+      "description": "Show what containers are currently running.",
+      "priority": "medium",
+      "due_date": null,
+      "status": "open"
+    }
+  ],
+  "ideas": ["Include simple command examples alongside port and Docker status views"],
+  "decisions": [],
+  "open_questions": [],
+  "tags": ["Wooden Jarvis", "dashboard", "Docker", "ports"],
+  "entities": ["ports currently in use", "Docker containers", "simple commands"],
+  "relationships": [
+    {
+      "source": "Wooden Jarvis dashboard",
+      "target": "Docker containers",
+      "relationship": "shows"
+    }
+  ],
+  "suggested_actions": ["Define which port and Docker commands should be displayed"],
+  "confidence": 0.74
+}
+
 Title: {{title}}
 
 Raw note:
 {{body}}
-

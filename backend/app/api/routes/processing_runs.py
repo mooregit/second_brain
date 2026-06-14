@@ -20,7 +20,8 @@ def list_processing_runs(db: Session = Depends(get_db)) -> list[dict]:
             "started_at": run.started_at.isoformat(),
             "finished_at": run.finished_at.isoformat() if run.finished_at else None,
             "error": run.error,
+            "raw_output": run.raw_output,
+            "parsed_json": run.parsed_json,
         }
         for run in runs
     ]
-

@@ -19,13 +19,30 @@ export type Memory = {
   confidence: number;
   tags: string[];
   tasks: { id: string; title: string; description: string | null; priority: string | null; status: string; source_raw_item_id: string }[];
-  ideas: { id: string; body: string; source_raw_item_id: string }[];
+  ideas: { id: string; body: string; status: string; source_raw_item_id: string }[];
+  decisions: { id: string; title: string; rationale: string | null; confidence: number; source_raw_item_id: string }[];
   open_questions: { id: string; question: string; status: string; source_raw_item_id: string }[];
   created_at: string;
 };
 
+export type ProcessingRun = {
+  id: string;
+  raw_item_id: string;
+  status: string;
+  model: string;
+  prompt_version: string;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  raw_output: string | null;
+  original_output: string | null;
+  repaired_output: string | null;
+  parsed_json: unknown;
+};
+
 export type ItemDetailResponse = {
   item: RawItem;
+  latest_processing_run: ProcessingRun | null;
   memories: Memory[];
 };
 
