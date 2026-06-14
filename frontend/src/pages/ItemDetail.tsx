@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Loader2, Play } from 'lucide-react';
 import { getItem, processItem } from '../api/items';
 import { patchMemory } from '../api/memories';
-import ExtractionReview from '../components/ExtractionReview';
+import { patchIdea, patchQuestion, patchTask } from '../api/review';
+import ExtractionReview, { ExtractionReviewPayload } from '../components/ExtractionReview';
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
@@ -13,8 +14,22 @@ export default function ItemDetail() {
     mutationFn: () => processItem(id!),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['item', id] })
   });
-  const patchMutation = useMutation({
-    mutationFn: ({ memoryId, payload }: { memoryId: string; payload: { summary: string; tags: string[] } }) => patchMemory(memoryId, payload),
+  const saveReviewMutation = useMutation({
+    mutationFn: async ({ memoryId, payload }: { memoryId: string; payload: ExtractionReviewPayload }) => {
+      await patchMemory(memoryId, { summary: payload.summary, tags: payload.tags });
+      await Promise.all([
+        ...payload.tasks.map((task) =>
+          patchTask(task.id, {
+            title: task.title,
+            description: task.description.trim() || null,
+            priority: task.priority || null,
+            status: task.status
+          })
+        ),
+        ...payload.ideas.map((idea) => patchIdea(idea.id, { body: idea.body })),
+        ...payload.open_questions.map((question) => patchQuestion(question.id, { question: question.question, status: question.status }))
+      ]);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['item', id] })
   });
 
@@ -50,9 +65,14 @@ export default function ItemDetail() {
       </section>
       {item.data.memories.map((memory) => (
         <section key={memory.id} className="rounded-md border border-slate-200 bg-white p-4">
-          <ExtractionReview memory={memory} onSave={(payload) => patchMutation.mutate({ memoryId: memory.id, payload })} />
+          <ExtractionReview
+            memory={memory}
+            isSaving={saveReviewMutation.isPending}
+            onSave={(payload) => saveReviewMutation.mutate({ memoryId: memory.id, payload })}
+          />
         </section>
       ))}
+      {saveReviewMutation.error && <p className="text-sm text-red-700">{saveReviewMutation.error.message}</p>}
     </div>
   );
 }

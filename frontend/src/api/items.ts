@@ -47,4 +47,3 @@ export function getItem(id: string) {
 export function processItem(id: string) {
   return api<{ memory_id: string; status: string }>(`/items/${id}/process`, { method: 'POST' });
 }
-
