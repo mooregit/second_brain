@@ -33,7 +33,27 @@ Local-first inbox for turning raw notes into structured memories, tasks, decisio
    ollama pull nomic-embed-text
    ```
 
-   The backend expects Ollama at `http://localhost:11434` on the host. In Docker Compose, the backend reaches it through `http://host.docker.internal:11434`.
+   Ollama runs on the host at `http://localhost:11434`. In Docker Compose, the backend reaches that host service through `http://host.docker.internal:11434`.
+
+   On Linux, if the backend reports `Ollama extraction failed: All connection attempts failed`, configure Ollama to listen on all interfaces for Docker:
+
+   ```bash
+   sudo systemctl edit ollama
+   ```
+
+   Add:
+
+   ```ini
+   [Service]
+   Environment="OLLAMA_HOST=0.0.0.0:11434"
+   ```
+
+   Then restart Ollama:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart ollama
+   ```
 
 3. Clone the project.
 
@@ -65,7 +85,7 @@ Local-first inbox for turning raw notes into structured memories, tasks, decisio
    FRONTEND_PORT=5174
    WEB_PORT=80
    PUBLIC_API_BASE_URL=http://secondbrain/api
-   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_BASE_URL=http://host.docker.internal:11434
    ```
 
 5. Add the local hostname.
@@ -98,6 +118,24 @@ Local-first inbox for turning raw notes into structured memories, tasks, decisio
    ```bash
    docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
    docker compose -f docker-compose.dev.yml exec backend alembic current
+   ```
+
+9. Verify Ollama connectivity from Docker.
+
+   ```bash
+   ./scripts/check-ollama-docker.sh
+   ```
+
+   If the script says Docker Compose is not accessible, refresh Docker group membership:
+
+   ```bash
+   newgrp docker
+   ```
+
+   If needed, add your user to the Docker group and log out/in:
+
+   ```bash
+   sudo usermod -aG docker "$USER"
    ```
 
 If ports are already in use, override them:
@@ -268,12 +306,136 @@ docker compose -f docker-compose.dev.yml down -v
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+## Troubleshooting
+
+### Ollama Connection From Docker
+
+The backend container reaches host Ollama at:
+
+```text
+http://host.docker.internal:11434
+```
+
+On Linux, Compose maps that hostname with:
+
+```yaml
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+```
+
+Check host Ollama:
+
+```bash
+curl http://localhost:11434/api/tags
+```
+
+Check from inside the backend container:
+
+```bash
+docker compose -f docker-compose.dev.yml exec -T backend python - <<'PY'
+import httpx
+print(httpx.get("http://host.docker.internal:11434/api/tags", timeout=5).json())
+PY
+```
+
+The helper script checks both host and backend-container access and warns if the configured models are missing:
+
+```bash
+./scripts/check-ollama-docker.sh
+```
+
+If it reports missing models, pull them:
+
+```bash
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+Or set `OLLAMA_EXTRACTION_MODEL` in `.env` to one you already have, such as:
+
+```env
+OLLAMA_EXTRACTION_MODEL=qwen3:14b
+```
+
+If the host check fails, start Ollama and pull the models:
+
+```bash
+ollama serve
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+If the host check works but the backend-container check fails with `All connection attempts failed`, Ollama is probably bound to `127.0.0.1` only. On Linux with a systemd-managed Ollama install, run:
+
+```bash
+sudo systemctl edit ollama
+```
+
+Add:
+
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+
+Then restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+Verify:
+
+```bash
+./scripts/check-ollama-docker.sh
+```
+
+### Ports Currently In Use
+
+Linux/macOS:
+
+```bash
+sudo lsof -iTCP -sTCP:LISTEN -P -n
+sudo lsof -i :80
+sudo lsof -i :8001
+sudo lsof -i :5174
+```
+
+Windows PowerShell:
+
+```powershell
+Get-NetTCPConnection -State Listen | Sort-Object LocalPort | Format-Table LocalAddress,LocalPort,OwningProcess
+Get-Process -Id <PID>
+```
+
+### Docker Container View
+
+```bash
+docker compose -f docker-compose.dev.yml ps
+docker compose -f docker-compose.dev.yml logs -f
+docker compose -f docker-compose.dev.yml logs -f backend
+docker compose -f docker-compose.dev.yml logs -f frontend
+docker compose -f docker-compose.dev.yml logs -f db
+docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Useful one-off checks:
+
+```bash
+docker compose -f docker-compose.dev.yml exec backend alembic current
+docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dt"
+docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
+```
+
 ## Run Without Docker
 
 Start or provide a PostgreSQL database, then set:
 
 ```bash
 export DATABASE_URL=postgresql+psycopg://secondbrain:secondbrain@localhost:5432/second_brain
+export OLLAMA_BASE_URL=http://localhost:11434
 ```
 
 If you are using a host-managed Postgres instead of Docker, install pgvector for your Postgres version and run this in the target database:
