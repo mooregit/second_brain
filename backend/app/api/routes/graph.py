@@ -9,6 +9,5 @@ router = APIRouter(prefix="/graph", tags=["graph"])
 
 
 @router.get("", response_model=GraphResponse)
-def graph(db: Session = Depends(get_db)) -> GraphResponse:
-    return GraphService(db).build()
-
+def graph(show_archived: bool = False, db: Session = Depends(get_db)) -> GraphResponse:
+    return GraphService(db).build(show_archived=show_archived)

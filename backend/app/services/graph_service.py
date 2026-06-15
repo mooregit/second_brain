@@ -10,7 +10,7 @@ class GraphService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def build(self) -> GraphResponse:
+    def build(self, show_archived: bool = False) -> GraphResponse:
         nodes: dict[str, GraphNode] = {}
         edges: dict[str, GraphEdge] = {}
         project_node_by_label: dict[str, str] = {}
@@ -24,7 +24,10 @@ class GraphService:
             project_node_by_label[normalized_name] = node_id
             project_node_by_label[self._normalize_label(f"{project.name} project")] = node_id
 
-        for task in self.db.scalars(select(Task)).all():
+        task_query = select(Task)
+        if not show_archived:
+            task_query = task_query.where(Task.status != "archived")
+        for task in self.db.scalars(task_query).all():
             node_id = f"task:{task.id}"
             nodes[node_id] = GraphNode(id=node_id, type="task", label=task.title, metadata={"raw_item_id": task.source_raw_item_id})
             if task.project_id:
@@ -37,7 +40,10 @@ class GraphService:
                     relationship_type="has_task",
                 )
 
-        for idea in self.db.scalars(select(Idea)).all():
+        idea_query = select(Idea)
+        if not show_archived:
+            idea_query = idea_query.where(Idea.status != "archived")
+        for idea in self.db.scalars(idea_query).all():
             node_id = f"idea:{idea.id}"
             nodes[node_id] = GraphNode(id=node_id, type="idea", label=idea.body[:80], metadata={"raw_item_id": idea.source_raw_item_id})
             if idea.project_id:
@@ -63,7 +69,10 @@ class GraphService:
                     relationship_type="has_decision",
                 )
 
-        for question in self.db.scalars(select(OpenQuestion)).all():
+        question_query = select(OpenQuestion)
+        if not show_archived:
+            question_query = question_query.where(OpenQuestion.status != "archived")
+        for question in self.db.scalars(question_query).all():
             node_id = f"question:{question.id}"
             nodes[node_id] = GraphNode(id=node_id, type="question", label=question.question, metadata={"raw_item_id": question.source_raw_item_id})
             if question.project_id:
@@ -84,11 +93,7 @@ class GraphService:
             decisions_by_memory_id.setdefault(decision.memory_id, []).append(decision)
 
         for memory in memories:
-            related_project_ids = {
-                item.project_id
-                for item in [*memory.tasks, *memory.ideas, *memory.open_questions, *decisions_by_memory_id.get(memory.id, [])]
-                if item.project_id
-            }
+            related_project_ids = {item.project_id for item in self._active_memory_items(memory, decisions_by_memory_id, show_archived) if item.project_id}
             related_project_node_ids = {project_node_by_id[project_id] for project_id in related_project_ids if project_id in project_node_by_id}
             fallback_source_node_id = self._source_node_id(memory.raw_item_id)
 
@@ -153,3 +158,9 @@ class GraphService:
 
     def _source_node_id(self, raw_item_id: str) -> str:
         return f"source:{raw_item_id}"
+
+    def _active_memory_items(self, memory: Memory, decisions_by_memory_id: dict[str, list[Decision]], show_archived: bool) -> list:
+        items = [*memory.tasks, *memory.ideas, *memory.open_questions, *decisions_by_memory_id.get(memory.id, [])]
+        if show_archived:
+            return items
+        return [item for item in items if getattr(item, "status", "active") != "archived"]

@@ -37,8 +37,11 @@ def question_dict(question: OpenQuestion) -> dict:
 
 
 @router.get("")
-def list_questions(db: Session = Depends(get_db)) -> list[dict]:
-    return [question_dict(question) for question in db.scalars(select(OpenQuestion).order_by(OpenQuestion.created_at.desc())).all()]
+def list_questions(show_archived: bool = False, db: Session = Depends(get_db)) -> list[dict]:
+    query = select(OpenQuestion).order_by(OpenQuestion.created_at.desc())
+    if not show_archived:
+        query = query.where(OpenQuestion.status != "archived")
+    return [question_dict(question) for question in db.scalars(query).all()]
 
 
 @router.post("")

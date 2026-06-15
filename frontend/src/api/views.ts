@@ -13,8 +13,7 @@ export type Settings = {
 };
 
 export const listProjects = () => api<Project[]>('/projects');
-export const listTasks = () => api<Task[]>('/tasks');
+export const listTasks = (showArchived = false) => api<Task[]>(`/tasks?show_archived=${showArchived}`);
 export const listDecisions = () => api<Decision[]>('/decisions');
-export const listOpenQuestions = () => api<OpenQuestion[]>('/open-questions');
+export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
 export const getSettings = () => api<Settings>('/settings');
-

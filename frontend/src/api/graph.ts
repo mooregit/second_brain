@@ -5,7 +5,6 @@ export type GraphResponse = {
   edges: { id: string; source: string; target: string; label: string; relationship_type: string }[];
 };
 
-export function getGraph() {
-  return api<GraphResponse>('/graph');
+export function getGraph(showArchived = false) {
+  return api<GraphResponse>(`/graph?show_archived=${showArchived}`);
 }
-

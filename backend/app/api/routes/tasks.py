@@ -44,8 +44,11 @@ def task_dict(task: Task) -> dict:
 
 
 @router.get("")
-def list_tasks(db: Session = Depends(get_db)) -> list[dict]:
-    return [task_dict(task) for task in db.scalars(select(Task).order_by(Task.created_at.desc())).all()]
+def list_tasks(show_archived: bool = False, db: Session = Depends(get_db)) -> list[dict]:
+    query = select(Task).order_by(Task.created_at.desc())
+    if not show_archived:
+        query = query.where(Task.status != "archived")
+    return [task_dict(task) for task in db.scalars(query).all()]
 
 
 @router.post("")

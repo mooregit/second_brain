@@ -1,13 +1,21 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import SourceLink from '../components/SourceLink';
 import { listTasks } from '../api/views';
 
 export default function Tasks() {
-  const tasks = useQuery({ queryKey: ['tasks'], queryFn: listTasks });
+  const [showArchived, setShowArchived] = useState(false);
+  const tasks = useQuery({ queryKey: ['tasks', showArchived], queryFn: () => listTasks(showArchived) });
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
-      <h1 className="mb-4 text-xl font-semibold">Tasks</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Tasks</h1>
+        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+          Show archived
+        </label>
+      </div>
       <div className="divide-y divide-slate-100">
         {tasks.data?.map((task) => (
           <article key={task.id} className="py-3">

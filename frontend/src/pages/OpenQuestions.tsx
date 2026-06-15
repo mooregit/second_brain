@@ -1,13 +1,21 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listOpenQuestions } from '../api/views';
 import SourceLink from '../components/SourceLink';
 
 export default function OpenQuestions() {
-  const questions = useQuery({ queryKey: ['open-questions'], queryFn: listOpenQuestions });
+  const [showArchived, setShowArchived] = useState(false);
+  const questions = useQuery({ queryKey: ['open-questions', showArchived], queryFn: () => listOpenQuestions(showArchived) });
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
-      <h1 className="mb-4 text-xl font-semibold">Open Questions</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Open Questions</h1>
+        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+          Show archived
+        </label>
+      </div>
       <div className="divide-y divide-slate-100">
         {questions.data?.map((question) => (
           <article key={question.id} className="py-3">

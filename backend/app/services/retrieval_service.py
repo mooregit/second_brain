@@ -19,9 +19,18 @@ class RetrievalService:
             score = self._cosine(query_vector, embedding.vector_json)
             scored.append((score, embedding))
         scored.sort(key=lambda row: row[0], reverse=True)
-        return [self._hydrate(score, embedding) for score, embedding in scored[:limit] if score > 0]
+        hydrated = []
+        for score, embedding in scored:
+            if score <= 0:
+                continue
+            match = self._hydrate(score, embedding)
+            if match:
+                hydrated.append(match)
+            if len(hydrated) >= limit:
+                break
+        return hydrated
 
-    def _hydrate(self, score: float, embedding: Embedding) -> dict:
+    def _hydrate(self, score: float, embedding: Embedding) -> dict | None:
         title = embedding.owner_type
         text = ""
         raw_item_id = None
@@ -34,12 +43,16 @@ class RetrievalService:
         elif embedding.owner_type == "task":
             item = self.db.get(Task, embedding.owner_id)
             if item:
+                if item.status == "archived":
+                    return None
                 title = item.title
                 text = f"Task: {item.title}\n{item.description or ''}\nStatus: {item.status}"
                 raw_item_id = item.source_raw_item_id
         elif embedding.owner_type == "idea":
             item = self.db.get(Idea, embedding.owner_id)
             if item:
+                if item.status == "archived":
+                    return None
                 title = item.body[:80]
                 text = f"Idea: {item.body}\nStatus: {item.status}"
                 raw_item_id = item.source_raw_item_id
@@ -52,6 +65,8 @@ class RetrievalService:
         elif embedding.owner_type == "open_question":
             item = self.db.get(OpenQuestion, embedding.owner_id)
             if item:
+                if item.status == "archived":
+                    return None
                 title = item.question[:80]
                 text = f"Open question: {item.question}\nStatus: {item.status}"
                 raw_item_id = item.source_raw_item_id
