@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.models import Memory, ProcessingRun, RawItem
 from app.schemas.raw_item import ManualItemCreate, RawItemOut
 from app.services.extraction_service import ExtractionService
+from app.services.file_service import FileService
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -38,6 +39,21 @@ async def upload_item(file: UploadFile = File(...), db: Session = Depends(get_db
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.post("/scan-inbox")
+def scan_inbox(db: Session = Depends(get_db)) -> dict:
+    try:
+        result = FileService(db).scan_inbox_folder()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "folder": result["folder"],
+        "created_count": result["created_count"],
+        "skipped_count": result["skipped_count"],
+        "created_items": [RawItemOut.model_validate(item).model_dump(mode="json") for item in result["created_items"]],
+        "skipped_files": result["skipped_files"],
+    }
 
 
 @router.get("", response_model=list[RawItemOut])

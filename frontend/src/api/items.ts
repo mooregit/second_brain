@@ -46,6 +46,14 @@ export type ItemDetailResponse = {
   memories: Memory[];
 };
 
+export type ScanInboxResponse = {
+  folder: string;
+  created_count: number;
+  skipped_count: number;
+  created_items: RawItem[];
+  skipped_files: string[];
+};
+
 export function listItems() {
   return api<RawItem[]>('/items');
 }
@@ -55,6 +63,19 @@ export function createManualItem(body_text: string, title?: string) {
     method: 'POST',
     body: JSON.stringify({ title, body_text })
   });
+}
+
+export function uploadItem(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return api<RawItem>('/items/upload', {
+    method: 'POST',
+    body: formData
+  });
+}
+
+export function scanInboxFolder() {
+  return api<ScanInboxResponse>('/items/scan-inbox', { method: 'POST' });
 }
 
 export function getItem(id: string) {

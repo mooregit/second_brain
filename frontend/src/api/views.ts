@@ -17,3 +17,8 @@ export const listTasks = (showArchived = false) => api<Task[]>(`/tasks?show_arch
 export const listDecisions = () => api<Decision[]>('/decisions');
 export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
 export const getSettings = () => api<Settings>('/settings');
+export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder'>>) =>
+  api<Settings>('/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });

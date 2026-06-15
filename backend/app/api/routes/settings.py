@@ -1,23 +1,25 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.database import get_db
+from app.services.settings_service import SettingsService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
+class SettingsPatch(BaseModel):
+    inbox_folder: str | None = None
+
+
 @router.get("")
-def get_app_settings() -> dict:
-    settings = get_settings()
-    return {
-        "ollama_base_url": settings.ollama_base_url,
-        "ollama_extraction_model": settings.ollama_extraction_model,
-        "ollama_embedding_model": settings.ollama_embedding_model,
-        "inbox_folder": settings.inbox_folder,
-        "gmail_status": "deferred",
-    }
+def get_app_settings(db: Session = Depends(get_db)) -> dict:
+    return SettingsService(db).as_dict()
 
 
 @router.patch("")
-def patch_settings() -> dict:
-    return {"status": "settings are environment-backed in the MVP"}
-
+def patch_settings(payload: SettingsPatch, db: Session = Depends(get_db)) -> dict:
+    service = SettingsService(db)
+    if payload.inbox_folder is not None:
+        service.set_inbox_folder(payload.inbox_folder)
+    return service.as_dict()
