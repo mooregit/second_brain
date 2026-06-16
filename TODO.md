@@ -57,6 +57,9 @@
 - [x] Build React Flow graph.
 - [x] Show projects, tasks, ideas, questions, tags, entities, and relationships.
 - [ ] Add graph filters for project, tag, source type, and date range.
+- [x] Add graph filters for node type.
+- [ ] Add graph filters for relationship type.
+- [x] Improve graph layout so projects, work items, tags, and extracted entities are visually grouped.
 - [ ] Make graph node clicks open source/detail pages.
 
 ## Phase 6: File And Folder Inputs
@@ -71,9 +74,14 @@
 ## Phase 7: Gmail
 
 - [x] Add deferred Gmail endpoint stubs.
-- [ ] Add local OAuth setup.
-- [ ] Add Gmail sync implementation.
-- [ ] Import labeled or prefixed emails into `RawItem` and `EmailMessage`.
+- [x] Add local OAuth setup.
+- [x] Add Gmail sync implementation.
+- [x] Import labeled or prefixed emails into `RawItem` and `EmailMessage`.
+- [ ] Show active Gmail query on the Inbox Gmail card.
+- [ ] Persist and show the latest Gmail sync result.
+- [ ] Add a `Sync without auto-process` action for Gmail testing.
+- [ ] Add a clearer Gmail setup/status indicator in Settings.
+- [ ] Add optional background Gmail polling when Gmail is enabled.
 - [ ] Add Gmail draft creation implementation.
 - [ ] Log every draft creation in `audit_logs`.
 

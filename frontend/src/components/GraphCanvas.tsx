@@ -2,18 +2,46 @@ import ReactFlow, { Background, Controls, Edge, Node } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type { GraphResponse } from '../api/graph';
 
-export default function GraphCanvas({ graph }: { graph: GraphResponse }) {
-  const nodes: Node[] = graph.nodes.map((node, index) => ({
-    id: node.id,
-    data: { label: node.label },
-    position: { x: (index % 4) * 260, y: Math.floor(index / 4) * 130 },
-    type: 'default'
-  }));
-  const edges: Edge[] = graph.edges.map((edge) => ({
+const columnByType: Record<string, number> = {
+  project: 0,
+  source: 0,
+  task: 1,
+  idea: 1,
+  decision: 1,
+  question: 1,
+  tag: 2,
+  person: 2,
+  entity: 3
+};
+
+export default function GraphCanvas({
+  graph,
+  visibleTypes,
+  showEdgeLabels
+}: {
+  graph: GraphResponse;
+  visibleTypes?: Set<string>;
+  showEdgeLabels?: boolean;
+}) {
+  const filteredNodes = visibleTypes ? graph.nodes.filter((node) => visibleTypes.has(node.type)) : graph.nodes;
+  const visibleNodeIds = new Set(filteredNodes.map((node) => node.id));
+  const rowByType = new Map<string, number>();
+  const nodes: Node[] = filteredNodes.map((node) => {
+    const row = rowByType.get(node.type) ?? 0;
+    rowByType.set(node.type, row + 1);
+    return {
+      id: node.id,
+      data: { label: node.label },
+      position: { x: (columnByType[node.type] ?? 3) * 310, y: row * 120 },
+      type: 'default',
+      className: `graph-node-${node.type}`
+    };
+  });
+  const edges: Edge[] = graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)).map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    label: edge.label
+    label: showEdgeLabels ? edge.label : undefined
   }));
 
   return (
@@ -25,4 +53,3 @@ export default function GraphCanvas({ graph }: { graph: GraphResponse }) {
     </div>
   );
 }
-
