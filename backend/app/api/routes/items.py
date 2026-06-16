@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models import Memory, ProcessingRun, RawItem
+from app.models import AskRun, EmailMessage, Embedding, FileAsset, Memory, ProcessingRun, RawItem
 from app.schemas.raw_item import ManualItemCreate, RawItemOut
 from app.services.extraction_service import ExtractionService
 from app.services.file_service import FileService
@@ -59,6 +59,39 @@ def scan_inbox(db: Session = Depends(get_db)) -> dict:
 @router.get("", response_model=list[RawItemOut])
 def list_items(db: Session = Depends(get_db)) -> list[RawItem]:
     return list(db.scalars(select(RawItem).order_by(RawItem.created_at.desc())).all())
+
+
+@router.delete("/{item_id}")
+def delete_item(item_id: str, db: Session = Depends(get_db)) -> dict:
+    item = db.scalars(
+        select(RawItem)
+        .where(RawItem.id == item_id)
+        .options(selectinload(RawItem.memories), selectinload(RawItem.processing_runs))
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    memory_ids = [memory.id for memory in item.memories]
+    child_owner_ids: list[tuple[str, str]] = [("memory", memory_id) for memory_id in memory_ids]
+    for memory in item.memories:
+        child_owner_ids.extend(("task", task.id) for task in memory.tasks)
+        child_owner_ids.extend(("idea", idea.id) for idea in memory.ideas)
+        child_owner_ids.extend(("decision", decision.id) for decision in memory.decisions)
+        child_owner_ids.extend(("open_question", question.id) for question in memory.open_questions)
+
+    for owner_type, owner_id in child_owner_ids:
+        for embedding in db.scalars(select(Embedding).where(Embedding.owner_type == owner_type, Embedding.owner_id == owner_id)).all():
+            db.delete(embedding)
+    for email_message in db.scalars(select(EmailMessage).where(EmailMessage.raw_item_id == item_id)).all():
+        db.delete(email_message)
+    for file_asset in db.scalars(select(FileAsset).where(FileAsset.raw_item_id == item_id)).all():
+        db.delete(file_asset)
+    for ask_run in db.scalars(select(AskRun).where(AskRun.saved_raw_item_id == item_id)).all():
+        ask_run.saved_raw_item_id = None
+
+    db.delete(item)
+    db.commit()
+    return {"status": "deleted", "id": item_id}
 
 
 @router.get("/{item_id}")

@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.api.routes.items import delete_item
 from app.core.database import Base
 from app.models import EmailMessage, RawItem
 from app.services.gmail_service import GmailService
@@ -48,6 +49,14 @@ def test_gmail_sync_imports_messages_once(db_session: Session) -> None:
     second = asyncio.run(GmailService(db_session).sync(auto_process=False, client=client))
     assert second["imported_count"] == 0
     assert second["skipped_count"] == 1
+
+    delete_response = delete_item(item.id, db_session)
+    assert delete_response["status"] == "deleted"
+    assert db_session.scalar(select(EmailMessage).where(EmailMessage.gmail_message_id == "gmail-1")) is None
+
+    third = asyncio.run(GmailService(db_session).sync(auto_process=False, client=client))
+    assert third["imported_count"] == 1
+    assert third["skipped_count"] == 0
 
 
 def test_gmail_oauth_flow_does_not_try_to_open_browser(db_session: Session) -> None:
