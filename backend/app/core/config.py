@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     ollama_extraction_model: str = "qwen3:8b"
     ollama_embedding_model: str = "nomic-embed-text"
     inbox_folder: str = "../data/inbox"
+    gmail_enabled: bool = False
+    gmail_label: str = "SecondBrain"
+    gmail_query: str = "label:SecondBrain"
+    gmail_auto_process: bool = True
+    gmail_credentials_path: str = "../data/gmail/credentials.json"
+    gmail_token_path: str = "../data/gmail/token.json"
 
     model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 

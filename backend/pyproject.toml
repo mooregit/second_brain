@@ -13,6 +13,8 @@ dependencies = [
   "numpy>=2.0",
   "alembic>=1.13",
   "psycopg[binary]>=3.2",
+  "google-api-python-client>=2.140",
+  "google-auth-oauthlib>=1.2",
 ]
 
 [project.optional-dependencies]

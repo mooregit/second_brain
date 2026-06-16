@@ -1,8 +1,9 @@
 import { FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { FolderSync, Loader2, Plus, Upload } from 'lucide-react';
+import { FolderSync, Inbox as InboxIcon, Loader2, Plus, Upload } from 'lucide-react';
 import { createManualItem, listItems, scanInboxFolder, uploadItem } from '../api/items';
+import { syncGmail } from '../api/gmail';
 
 export default function Inbox() {
   const [note, setNote] = useState('');
@@ -21,6 +22,10 @@ export default function Inbox() {
   });
   const scanMutation = useMutation({
     mutationFn: scanInboxFolder,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] })
+  });
+  const gmailMutation = useMutation({
+    mutationFn: () => syncGmail(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] })
   });
 
@@ -102,6 +107,25 @@ export default function Inbox() {
           )}
           {uploadMutation.error && <p className="mt-2 text-sm text-red-700">{uploadMutation.error.message}</p>}
           {scanMutation.error && <p className="mt-2 text-sm text-red-700">{scanMutation.error.message}</p>}
+        </section>
+        <section className="rounded-md border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-base font-semibold">Gmail</h2>
+          <button
+            type="button"
+            onClick={() => gmailMutation.mutate()}
+            disabled={gmailMutation.isPending}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+          >
+            {gmailMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <InboxIcon size={16} />}
+            Sync Gmail
+          </button>
+          {gmailMutation.data && (
+            <p className="mt-2 text-sm text-slate-600">
+              Imported {gmailMutation.data.imported_count}; processed {gmailMutation.data.processed_count}; skipped {gmailMutation.data.skipped_count}
+            </p>
+          )}
+          {gmailMutation.data?.failed_count ? <p className="mt-2 text-sm text-red-700">{gmailMutation.data.failed_count} imported emails failed processing.</p> : null}
+          {gmailMutation.error && <p className="mt-2 text-sm text-red-700">{gmailMutation.error.message}</p>}
         </section>
       </div>
     </div>

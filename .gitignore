@@ -11,3 +11,5 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/inbox/*
 !data/inbox/.gitkeep
+data/gmail/*
+!data/gmail/.gitkeep

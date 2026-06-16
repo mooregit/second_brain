@@ -10,6 +10,10 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 
 class SettingsPatch(BaseModel):
     inbox_folder: str | None = None
+    gmail_enabled: bool | None = None
+    gmail_label: str | None = None
+    gmail_query: str | None = None
+    gmail_auto_process: bool | None = None
 
 
 @router.get("")
@@ -22,4 +26,12 @@ def patch_settings(payload: SettingsPatch, db: Session = Depends(get_db)) -> dic
     service = SettingsService(db)
     if payload.inbox_folder is not None:
         service.set_inbox_folder(payload.inbox_folder)
+    if payload.gmail_enabled is not None:
+        service.set_gmail_enabled(payload.gmail_enabled)
+    if payload.gmail_label is not None:
+        service.set_gmail_label(payload.gmail_label)
+    if payload.gmail_query is not None:
+        service.set_gmail_query(payload.gmail_query)
+    if payload.gmail_auto_process is not None:
+        service.set_gmail_auto_process(payload.gmail_auto_process)
     return service.as_dict()

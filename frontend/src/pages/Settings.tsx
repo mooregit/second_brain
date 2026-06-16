@@ -5,18 +5,39 @@ import { getSettings, patchSettings } from '../api/views';
 
 export default function Settings() {
   const [inboxFolder, setInboxFolder] = useState('');
+  const [gmailEnabled, setGmailEnabled] = useState(false);
+  const [gmailLabel, setGmailLabel] = useState('');
+  const [gmailQuery, setGmailQuery] = useState('');
+  const [gmailAutoProcess, setGmailAutoProcess] = useState(true);
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings });
   const saveSettings = useMutation({
-    mutationFn: () => patchSettings({ inbox_folder: inboxFolder }),
+    mutationFn: () =>
+      patchSettings({
+        inbox_folder: inboxFolder,
+        gmail_enabled: gmailEnabled,
+        gmail_label: gmailLabel,
+        gmail_query: gmailQuery,
+        gmail_auto_process: gmailAutoProcess
+      }),
     onSuccess: (data) => {
       setInboxFolder(data.inbox_folder);
+      setGmailEnabled(data.gmail_enabled);
+      setGmailLabel(data.gmail_label);
+      setGmailQuery(data.gmail_query);
+      setGmailAutoProcess(data.gmail_auto_process);
       queryClient.invalidateQueries({ queryKey: ['settings'] });
     }
   });
 
   useEffect(() => {
-    if (settings.data) setInboxFolder(settings.data.inbox_folder);
+    if (settings.data) {
+      setInboxFolder(settings.data.inbox_folder);
+      setGmailEnabled(settings.data.gmail_enabled);
+      setGmailLabel(settings.data.gmail_label);
+      setGmailQuery(settings.data.gmail_query);
+      setGmailAutoProcess(settings.data.gmail_auto_process);
+    }
   }, [settings.data]);
 
   function submit(event: FormEvent) {
@@ -38,6 +59,10 @@ export default function Settings() {
             <dd>{settings.data.ollama_embedding_model}</dd>
             <dt className="font-medium text-slate-600">Gmail</dt>
             <dd>{settings.data.gmail_status}</dd>
+            <dt className="font-medium text-slate-600">Gmail credentials</dt>
+            <dd>{settings.data.gmail_credentials_path}</dd>
+            <dt className="font-medium text-slate-600">Gmail token</dt>
+            <dd>{settings.data.gmail_token_path}</dd>
           </dl>
           <form onSubmit={submit} className="max-w-3xl space-y-2 border-t border-slate-200 pt-4">
             <label className="block text-sm font-medium text-slate-700">
@@ -48,6 +73,24 @@ export default function Settings() {
                 onChange={(event) => setInboxFolder(event.target.value)}
               />
             </label>
+            <div className="grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input type="checkbox" checked={gmailEnabled} onChange={(event) => setGmailEnabled(event.target.checked)} />
+                Gmail enabled
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input type="checkbox" checked={gmailAutoProcess} onChange={(event) => setGmailAutoProcess(event.target.checked)} />
+                Auto-process imported emails
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Gmail label
+                <input className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" value={gmailLabel} onChange={(event) => setGmailLabel(event.target.value)} />
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Gmail query
+                <input className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" value={gmailQuery} onChange={(event) => setGmailQuery(event.target.value)} />
+              </label>
+            </div>
             <button
               disabled={saveSettings.isPending || !inboxFolder.trim()}
               className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"

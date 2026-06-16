@@ -306,6 +306,40 @@ docker compose -f docker-compose.dev.yml down -v
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+## Gmail Import
+
+Gmail import is manual-first and label/query scoped. The recommended Gmail filter applies a `SecondBrain` label, then the app syncs only messages matching:
+
+```text
+label:SecondBrain
+```
+
+Local OAuth files live under `data/gmail/` and are ignored by git:
+
+```text
+data/gmail/credentials.json
+data/gmail/token.json
+```
+
+Create OAuth desktop credentials in Google Cloud, download the JSON file, and save it as `data/gmail/credentials.json`. The first sync starts a local OAuth flow and writes `token.json`. In Docker, watch the backend logs for the authorization URL if your browser does not open automatically.
+
+Relevant settings can be edited in the app Settings page:
+
+- Gmail enabled
+- Gmail label
+- Gmail query
+- Auto-process imported emails
+
+Manual sync is available from the Inbox page with `Sync Gmail`, or through the API:
+
+```bash
+curl -X POST http://secondbrain/api/gmail/sync \
+  -H "Content-Type: application/json" \
+  -d '{"max_results": 10}'
+```
+
+Imported messages are stored as `RawItem` records with `source_type="gmail"` and linked `EmailMessage` metadata. Duplicate Gmail message IDs are skipped. Imported emails can auto-process through the same extraction pipeline; generated replies are still draft-only and deferred.
+
 ## Troubleshooting
 
 ### Ollama Connection From Docker

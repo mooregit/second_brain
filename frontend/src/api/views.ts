@@ -9,6 +9,12 @@ export type Settings = {
   ollama_extraction_model: string;
   ollama_embedding_model: string;
   inbox_folder: string;
+  gmail_enabled: boolean;
+  gmail_label: string;
+  gmail_query: string;
+  gmail_auto_process: boolean;
+  gmail_credentials_path: string;
+  gmail_token_path: string;
   gmail_status: string;
 };
 
@@ -17,7 +23,7 @@ export const listTasks = (showArchived = false) => api<Task[]>(`/tasks?show_arch
 export const listDecisions = () => api<Decision[]>('/decisions');
 export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
 export const getSettings = () => api<Settings>('/settings');
-export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder'>>) =>
+export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder' | 'gmail_enabled' | 'gmail_label' | 'gmail_query' | 'gmail_auto_process'>>) =>
   api<Settings>('/settings', {
     method: 'PATCH',
     body: JSON.stringify(payload)
