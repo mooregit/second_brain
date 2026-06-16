@@ -29,6 +29,13 @@ services:
       OLLAMA_EXTRACTION_MODEL: ${OLLAMA_EXTRACTION_MODEL:-qwen3:8b}
       OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
       INBOX_FOLDER: /app/data/inbox
+      GMAIL_ENABLED: ${GMAIL_ENABLED:-false}
+      GMAIL_LABEL: ${GMAIL_LABEL:-SecondBrain}
+      GMAIL_QUERY: ${GMAIL_QUERY:-label:SecondBrain}
+      GMAIL_AUTO_PROCESS: ${GMAIL_AUTO_PROCESS:-true}
+      GMAIL_CREDENTIALS_PATH: ${GMAIL_CREDENTIALS_PATH:-../data/gmail/credentials.json}
+      GMAIL_TOKEN_PATH: ${GMAIL_TOKEN_PATH:-../data/gmail/token.json}
+      GMAIL_OAUTH_PORT: ${GMAIL_OAUTH_PORT:-8090}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -36,6 +43,7 @@ services:
       - ./data:/app/data
     ports:
       - "${BACKEND_PORT:-8001}:8000"
+      - "${GMAIL_OAUTH_PORT:-8090}:${GMAIL_OAUTH_PORT:-8090}"
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:

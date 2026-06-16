@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     gmail_auto_process: bool = True
     gmail_credentials_path: str = "../data/gmail/credentials.json"
     gmail_token_path: str = "../data/gmail/token.json"
+    gmail_oauth_port: int = 8090
 
     model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 

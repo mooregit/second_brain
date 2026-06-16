@@ -321,7 +321,19 @@ data/gmail/credentials.json
 data/gmail/token.json
 ```
 
-Create OAuth desktop credentials in Google Cloud, download the JSON file, and save it as `data/gmail/credentials.json`. The first sync starts a local OAuth flow and writes `token.json`. In Docker, watch the backend logs for the authorization URL if your browser does not open automatically.
+Create OAuth desktop credentials in Google Cloud, download the JSON file, and save it as `data/gmail/credentials.json`. The first sync starts a local OAuth flow and writes `token.json`.
+
+In Docker, the backend cannot open a browser. It prints an authorization URL in the backend logs. Open that URL on the host machine, approve access, and Google will redirect to:
+
+```text
+http://localhost:8090/
+```
+
+The compose stack exposes this callback port by default:
+
+```text
+8090:8090
+```
 
 Relevant settings can be edited in the app Settings page:
 

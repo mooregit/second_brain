@@ -50,6 +50,15 @@ def test_gmail_sync_imports_messages_once(db_session: Session) -> None:
     assert second["skipped_count"] == 1
 
 
+def test_gmail_oauth_flow_does_not_try_to_open_browser(db_session: Session) -> None:
+    flow = FakeOAuthFlow()
+    GmailService(db_session)._run_oauth_flow(flow)
+
+    assert flow.kwargs["open_browser"] is False
+    assert flow.kwargs["bind_addr"] == "0.0.0.0"
+    assert flow.kwargs["port"] == 8090
+
+
 def _gmail_message(message_id: str, subject: str, body: str) -> dict:
     encoded_body = base64.urlsafe_b64encode(body.encode("utf-8")).decode("utf-8")
     return {
@@ -93,3 +102,12 @@ class FakeRequest:
 
     def execute(self) -> dict:
         return self.response
+
+
+class FakeOAuthFlow:
+    def __init__(self) -> None:
+        self.kwargs = {}
+
+    def run_local_server(self, **kwargs) -> object:
+        self.kwargs = kwargs
+        return object()

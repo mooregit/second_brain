@@ -1,4 +1,5 @@
 import base64
+import logging
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -11,6 +12,8 @@ from app.core.config import get_settings
 from app.models import EmailMessage, RawItem
 from app.services.extraction_service import ExtractionService
 from app.services.settings_service import SettingsService
+
+logger = logging.getLogger(__name__)
 
 
 class GmailService:
@@ -82,9 +85,29 @@ class GmailService:
                 if not credentials_path.exists():
                     raise RuntimeError(f"Gmail credentials file not found: {credentials_path}")
                 flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), self.scopes)
-                creds = flow.run_local_server(port=0)
+                creds = self._run_oauth_flow(flow)
             token_path.write_text(creds.to_json(), encoding="utf-8")
         return build("gmail", "v1", credentials=creds)
+
+    def _run_oauth_flow(self, flow: Any) -> Any:
+        port = self.env_settings.gmail_oauth_port
+        try:
+            return flow.run_local_server(
+                host="localhost",
+                bind_addr="0.0.0.0",
+                port=port,
+                open_browser=False,
+                authorization_prompt_message=(
+                    "\nGmail authorization required.\n"
+                    "Open this URL in your browser:\n{url}\n\n"
+                    f"After approval, Google will redirect to http://localhost:{port}/.\n"
+                ),
+            )
+        except OSError as exc:
+            raise RuntimeError(f"Gmail OAuth callback port {port} is unavailable. Set GMAIL_OAUTH_PORT to a free port and expose it in Docker Compose.") from exc
+        except Exception as exc:
+            logger.exception("Gmail OAuth flow failed")
+            raise RuntimeError(f"Gmail OAuth flow failed: {exc}") from exc
 
     def _path(self, value: str) -> Path:
         path = Path(value).expanduser()
