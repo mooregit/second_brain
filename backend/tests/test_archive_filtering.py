@@ -68,6 +68,22 @@ def test_graph_hides_archived_records_by_default(db_session: Session) -> None:
     assert "Archived question?" in archived_labels
 
 
+def test_graph_links_derived_records_to_their_source_raw_item(db_session: Session) -> None:
+    memory, raw_item = _memory(db_session)
+    task = Task(memory_id=memory.id, title="Website needs work", status="open", source_raw_item_id=raw_item.id)
+    idea = Idea(memory_id=memory.id, body="https://saharamediterraneancuisine.shop/", status="active", source_raw_item_id=raw_item.id)
+    db_session.add_all([task, idea])
+    db_session.commit()
+
+    graph = GraphService(db_session).build()
+    source_node_id = f"source:{raw_item.id}"
+    edge_pairs = {(edge.source, edge.target, edge.relationship_type) for edge in graph.edges}
+
+    assert any(node.id == source_node_id and node.label == "Source" for node in graph.nodes)
+    assert (source_node_id, f"task:{task.id}", "from_source") in edge_pairs
+    assert (source_node_id, f"idea:{idea.id}", "from_source") in edge_pairs
+
+
 def _memory(db_session: Session) -> tuple[Memory, RawItem]:
     raw_item = RawItem(source_type="manual", title="Source", body_text="Body", status="processed")
     db_session.add(raw_item)

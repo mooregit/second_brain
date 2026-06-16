@@ -30,6 +30,7 @@ class GraphService:
         for task in self.db.scalars(task_query).all():
             node_id = f"task:{task.id}"
             nodes[node_id] = GraphNode(id=node_id, type="task", label=task.title, metadata={"raw_item_id": task.source_raw_item_id})
+            self._add_source_edge(nodes, edges, task.source_raw_item_id, node_id)
             if task.project_id:
                 project_node_id = project_node_by_id.get(task.project_id, f"project:{task.project_id}")
                 edges[f"project-task:{task.project_id}:{task.id}"] = GraphEdge(
@@ -46,6 +47,7 @@ class GraphService:
         for idea in self.db.scalars(idea_query).all():
             node_id = f"idea:{idea.id}"
             nodes[node_id] = GraphNode(id=node_id, type="idea", label=idea.body[:80], metadata={"raw_item_id": idea.source_raw_item_id})
+            self._add_source_edge(nodes, edges, idea.source_raw_item_id, node_id)
             if idea.project_id:
                 project_node_id = project_node_by_id.get(idea.project_id, f"project:{idea.project_id}")
                 edges[f"project-idea:{idea.project_id}:{idea.id}"] = GraphEdge(
@@ -59,6 +61,7 @@ class GraphService:
         for decision in self.db.scalars(select(Decision)).all():
             node_id = f"decision:{decision.id}"
             nodes[node_id] = GraphNode(id=node_id, type="decision", label=decision.title, metadata={"raw_item_id": decision.source_raw_item_id})
+            self._add_source_edge(nodes, edges, decision.source_raw_item_id, node_id)
             if decision.project_id:
                 project_node_id = project_node_by_id.get(decision.project_id, f"project:{decision.project_id}")
                 edges[f"project-decision:{decision.project_id}:{decision.id}"] = GraphEdge(
@@ -75,6 +78,7 @@ class GraphService:
         for question in self.db.scalars(question_query).all():
             node_id = f"question:{question.id}"
             nodes[node_id] = GraphNode(id=node_id, type="question", label=question.question, metadata={"raw_item_id": question.source_raw_item_id})
+            self._add_source_edge(nodes, edges, question.source_raw_item_id, node_id)
             if question.project_id:
                 project_node_id = project_node_by_id.get(question.project_id, f"project:{question.project_id}")
                 edges[f"project-question:{question.project_id}:{question.id}"] = GraphEdge(
@@ -158,6 +162,24 @@ class GraphService:
 
     def _source_node_id(self, raw_item_id: str) -> str:
         return f"source:{raw_item_id}"
+
+    def _add_source_edge(self, nodes: dict[str, GraphNode], edges: dict[str, GraphEdge], raw_item_id: str, target_node_id: str) -> None:
+        source_node_id = self._source_node_id(raw_item_id)
+        raw_item = self.db.get(RawItem, raw_item_id)
+        nodes.setdefault(
+            source_node_id,
+            GraphNode(
+                id=source_node_id,
+                type="source",
+                label=raw_item.title if raw_item else "Source note",
+                metadata={"raw_item_id": raw_item_id},
+            ),
+        )
+        edge_id = f"source-derived:{raw_item_id}:{target_node_id}"
+        edges.setdefault(
+            edge_id,
+            GraphEdge(id=edge_id, source=source_node_id, target=target_node_id, label="from source", relationship_type="from_source"),
+        )
 
     def _active_memory_items(self, memory: Memory, decisions_by_memory_id: dict[str, list[Decision]], show_archived: bool) -> list:
         items = [*memory.tasks, *memory.ideas, *memory.open_questions, *decisions_by_memory_id.get(memory.id, [])]
