@@ -25,14 +25,15 @@ export default function GraphCanvas({
 }) {
   const filteredNodes = visibleTypes ? graph.nodes.filter((node) => visibleTypes.has(node.type)) : graph.nodes;
   const visibleNodeIds = new Set(filteredNodes.map((node) => node.id));
-  const rowByType = new Map<string, number>();
+  const rowByColumn = new Map<number, number>();
   const nodes: Node[] = filteredNodes.map((node) => {
-    const row = rowByType.get(node.type) ?? 0;
-    rowByType.set(node.type, row + 1);
+    const column = columnByType[node.type] ?? 3;
+    const row = rowByColumn.get(column) ?? 0;
+    rowByColumn.set(column, row + 1);
     return {
       id: node.id,
       data: { label: node.label },
-      position: { x: (columnByType[node.type] ?? 3) * 310, y: row * 120 },
+      position: { x: column * 310, y: row * 120 },
       type: 'default',
       className: `graph-node-${node.type}`
     };
