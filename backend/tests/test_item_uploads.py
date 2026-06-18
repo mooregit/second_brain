@@ -26,13 +26,20 @@ def db_session(tmp_path) -> Session:
 
 
 @pytest.mark.parametrize(
-    ("filename", "content_type"),
+    ("filename", "content_type", "expected_body"),
     [
-        ("note.txt", "text/plain"),
-        ("note.md", "text/markdown"),
+        ("note.txt", "text/plain", "# Note\nUpload body"),
+        ("note.md", "text/markdown", "# Note\nUpload body"),
     ],
 )
-def test_upload_item_stores_file_asset_and_original_content(db_session: Session, tmp_path, monkeypatch, filename: str, content_type: str) -> None:
+def test_upload_item_stores_file_asset_and_original_content(
+    db_session: Session,
+    tmp_path,
+    monkeypatch,
+    filename: str,
+    content_type: str,
+    expected_body: str,
+) -> None:
     monkeypatch.setattr(FileService, "_upload_directory", lambda self, raw_item_id: tmp_path / "uploads" / raw_item_id)
     content = b"# Note\nUpload body"
     file = FakeUploadFile(filename, content_type, content)
@@ -42,7 +49,7 @@ def test_upload_item_stores_file_asset_and_original_content(db_session: Session,
 
     assert isinstance(item, RawItem)
     assert item.source_type == "upload"
-    assert item.body_text == "# Note\nUpload body"
+    assert item.body_text == expected_body
     assert item.source_uri.endswith(f"/{filename}")
     assert asset is not None
     assert asset.filename == filename
@@ -50,6 +57,24 @@ def test_upload_item_stores_file_asset_and_original_content(db_session: Session,
     assert asset.size_bytes == len(content)
     assert asset.sha256 == hashlib.sha256(content).hexdigest()
     assert (tmp_path / "uploads" / item.id / filename).read_bytes() == content
+
+
+def test_upload_item_extracts_pdf_text_and_stores_original_file(db_session: Session, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(FileService, "_upload_directory", lambda self, raw_item_id: tmp_path / "uploads" / raw_item_id)
+    monkeypatch.setattr(FileService, "extract_pdf_text", lambda self, content: "Extracted PDF text")
+    content = b"%PDF-1.4 fake pdf content"
+    file = FakeUploadFile("brief.pdf", "application/pdf", content)
+
+    item = asyncio.run(upload_item(file, db_session))
+    asset = db_session.scalar(select(FileAsset).where(FileAsset.raw_item_id == item.id))
+
+    assert item.title == "brief.pdf"
+    assert item.body_text == "Extracted PDF text"
+    assert item.content_type == "application/pdf"
+    assert asset is not None
+    assert asset.filename == "brief.pdf"
+    assert asset.sha256 == hashlib.sha256(content).hexdigest()
+    assert (tmp_path / "uploads" / item.id / "brief.pdf").read_bytes() == content
 
 
 class FakeUploadFile:

@@ -105,11 +105,11 @@ export default function Inbox() {
           <h2 className="mb-3 text-base font-semibold">File Inputs</h2>
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
             {uploadMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-            Upload .txt or .md
+            Upload .txt, .md, or .pdf
             <input
               type="file"
               className="hidden"
-              accept=".txt,.md,text/plain,text/markdown"
+              accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf"
               disabled={uploadMutation.isPending}
               onChange={(event) => {
                 const file = event.target.files?.[0];

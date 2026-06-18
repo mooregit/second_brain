@@ -162,7 +162,9 @@
 - [ ] Add YouTube transcript import from video URLs.
 - [ ] Add podcast transcript import from audio files or transcript URLs.
 - [ ] Add meeting transcript import for Zoom, Google Meet, Otter, Fireflies, Granola, and similar exports.
-- [ ] Add PDF and ebook import with text extraction first, OCR later.
+- [x] Add PDF import with text extraction first, OCR later.
+- [ ] Add ebook import with text extraction first.
+- [ ] Add OCR for scanned PDFs/images later.
 - [ ] Add Google Sheets import for selected spreadsheets and CSV-like tables.
 - [ ] Add Excel import for `.xlsx` and `.csv` files.
 - [ ] Add Airtable import for selected bases and tables.

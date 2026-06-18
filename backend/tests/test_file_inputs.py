@@ -23,22 +23,24 @@ def db_session(tmp_path) -> Generator[Session, None, None]:
         Base.metadata.drop_all(engine)
 
 
-def test_scan_inbox_folder_imports_supported_files_once(db_session: Session, tmp_path) -> None:
+def test_scan_inbox_folder_imports_supported_files_once(db_session: Session, tmp_path, monkeypatch) -> None:
     inbox = tmp_path / "inbox"
     inbox.mkdir()
     (inbox / "note.md").write_text("# Note\n\nRemember this.", encoding="utf-8")
-    (inbox / "skip.pdf").write_text("ignored", encoding="utf-8")
+    (inbox / "brief.pdf").write_bytes(b"%PDF-1.4 fake pdf content")
+    monkeypatch.setattr(FileService, "extract_pdf_text", lambda self, content: "PDF body")
     SettingsService(db_session).set_inbox_folder(str(inbox))
 
     first_scan = FileService(db_session).scan_inbox_folder()
-    assert first_scan["created_count"] == 1
+    assert first_scan["created_count"] == 2
     assert first_scan["skipped_count"] == 0
 
-    item = db_session.scalar(select(RawItem).where(RawItem.source_type == "folder"))
-    assert item is not None
-    assert item.title == "note"
-    assert item.body_text.startswith("# Note")
+    items = db_session.scalars(select(RawItem).where(RawItem.source_type == "folder").order_by(RawItem.title)).all()
+    assert [item.title for item in items] == ["brief", "note"]
+    assert items[0].body_text == "PDF body"
+    assert items[0].content_type == "application/pdf"
+    assert items[1].body_text.startswith("# Note")
 
     second_scan = FileService(db_session).scan_inbox_folder()
     assert second_scan["created_count"] == 0
-    assert second_scan["skipped_count"] == 1
+    assert second_scan["skipped_count"] == 2

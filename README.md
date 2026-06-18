@@ -456,6 +456,20 @@ Migration files live in:
 backend/migrations/
 ```
 
+## File And PDF Inputs
+
+The Inbox page supports manual notes, file uploads, and manual inbox-folder scans.
+
+Supported upload and folder-scan formats:
+
+- `.txt`
+- `.md`
+- `.pdf` files that contain selectable text
+
+Uploaded files are copied under `data/uploads/` and linked as `FileAsset` records. PDF uploads keep the original PDF and store extracted text in the `RawItem` so the normal processing pipeline can extract memories, tasks, ideas, decisions, open questions, tags, and graph relationships.
+
+Scanned/image-only PDFs are not OCRed yet. For those, export or OCR the PDF to selectable text first, then upload or drop it into the inbox folder.
+
 ## Gmail Import
 
 Gmail import is manual-first and label/query scoped. The recommended Gmail filter applies a `SecondBrain` label, then the app syncs only messages matching:

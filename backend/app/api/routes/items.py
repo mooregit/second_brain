@@ -27,9 +27,9 @@ async def upload_item(file: UploadFile = File(...), db: Session = Depends(get_db
     filename = file.filename or "upload.txt"
     content_type = file.content_type or "text/plain"
     try:
-        body_text = content.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=400, detail="Only UTF-8 text uploads are supported in the MVP") from exc
+        body_text, content_type = FileService(db).extract_text(filename, content, content_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     item = RawItem(
         source_type="upload",
         title=filename,

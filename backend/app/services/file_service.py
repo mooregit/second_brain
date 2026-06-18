@@ -1,4 +1,5 @@
 import hashlib
+from io import BytesIO
 from pathlib import Path
 from re import sub
 
@@ -11,7 +12,7 @@ from app.services.settings_service import SettingsService
 
 
 class FileService:
-    supported_suffixes = {".txt", ".md"}
+    supported_suffixes = {".txt", ".md", ".pdf"}
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -33,6 +34,33 @@ class FileService:
         self.db.add(asset)
         return asset
 
+    def extract_text(self, filename: str, content: bytes, mime_type: str | None = None) -> tuple[str, str]:
+        suffix = Path(filename).suffix.lower()
+        if suffix == ".pdf" or mime_type == "application/pdf":
+            return self.extract_pdf_text(content), "application/pdf"
+        try:
+            body_text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError("Only UTF-8 text uploads and text-based PDFs are supported") from exc
+        content_type = mime_type or ("text/markdown" if suffix == ".md" else "text/plain")
+        return body_text, content_type
+
+    def extract_pdf_text(self, content: bytes) -> str:
+        try:
+            from pypdf import PdfReader
+        except ImportError as exc:
+            raise ValueError("PDF support requires the pypdf package to be installed") from exc
+
+        try:
+            reader = PdfReader(BytesIO(content))
+            pages = [page.extract_text() or "" for page in reader.pages]
+        except Exception as exc:
+            raise ValueError("Could not read PDF text") from exc
+        text = "\n\n".join(page.strip() for page in pages if page.strip()).strip()
+        if not text:
+            raise ValueError("No selectable text found in PDF; OCR is not supported yet")
+        return text
+
     def scan_inbox_folder(self) -> dict:
         folder = Path(SettingsService(self.db).get_inbox_folder()).expanduser()
         if not folder.is_absolute():
@@ -52,12 +80,17 @@ class FileService:
             if self.db.scalar(select(RawItem).where(RawItem.source_uri == source_uri)):
                 skipped.append(path.name)
                 continue
-            body_text = path.read_text(encoding="utf-8")
+            content = path.read_bytes()
+            try:
+                body_text, content_type = self.extract_text(path.name, content, None)
+            except ValueError:
+                skipped.append(path.name)
+                continue
             item = RawItem(
                 source_type="folder",
                 title=path.stem,
                 body_text=body_text,
-                content_type="text/markdown" if path.suffix.lower() == ".md" else "text/plain",
+                content_type=content_type,
                 source_uri=source_uri,
                 metadata_json={"filename": path.name, "folder": str(folder)},
             )
