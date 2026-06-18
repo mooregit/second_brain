@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Archive, Loader2, Plus, Save, X } from 'lucide-react';
 import type { Memory } from '../api/items';
+import SourceLink from './SourceLink';
 
 type EditableTask = {
   id: string;
   isNew?: boolean;
+  source_raw_item_id?: string;
   title: string;
   description: string;
   priority: string;
@@ -14,6 +16,7 @@ type EditableTask = {
 type EditableIdea = {
   id: string;
   isNew?: boolean;
+  source_raw_item_id?: string;
   body: string;
   status: string;
 };
@@ -21,6 +24,7 @@ type EditableIdea = {
 type EditableDecision = {
   id: string;
   isNew?: boolean;
+  source_raw_item_id?: string;
   title: string;
   rationale: string;
   confidence: number;
@@ -29,6 +33,7 @@ type EditableDecision = {
 type EditableQuestion = {
   id: string;
   isNew?: boolean;
+  source_raw_item_id?: string;
   question: string;
   status: string;
 };
@@ -57,7 +62,7 @@ export default function ExtractionReview({
   const [ideas, setIdeas] = useState<EditableIdea[]>(() => memory.ideas.map(toEditableIdea));
   const [decisions, setDecisions] = useState<EditableDecision[]>(() => memory.decisions.map(toEditableDecision));
   const [questions, setQuestions] = useState<EditableQuestion[]>(() =>
-    memory.open_questions.map((question) => ({ id: question.id, question: question.question, status: question.status }))
+    memory.open_questions.map(toEditableQuestion)
   );
 
   useEffect(() => {
@@ -66,7 +71,7 @@ export default function ExtractionReview({
     setTasks(memory.tasks.map(toEditableTask));
     setIdeas(memory.ideas.map(toEditableIdea));
     setDecisions(memory.decisions.map(toEditableDecision));
-    setQuestions(memory.open_questions.map((question) => ({ id: question.id, question: question.question, status: question.status })));
+    setQuestions(memory.open_questions.map(toEditableQuestion));
   }, [memory]);
 
   function save() {
@@ -155,6 +160,7 @@ export default function ExtractionReview({
                     <option value="high">High</option>
                   </select>
                 </div>
+                <ChildSourceLink rawItemId={task.source_raw_item_id} />
               </li>
             ))}
           </ul>
@@ -192,6 +198,7 @@ export default function ExtractionReview({
                   <option value="active">Active</option>
                   <option value="archived">Archived</option>
                 </select>
+                <ChildSourceLink rawItemId={idea.source_raw_item_id} />
               </li>
             ))}
           </ul>
@@ -238,6 +245,7 @@ export default function ExtractionReview({
                     onChange={(event) => updateDecision(index, { confidence: Number(event.target.value) })}
                   />
                 </label>
+                <ChildSourceLink rawItemId={decision.source_raw_item_id} />
               </li>
             ))}
           </ul>
@@ -276,6 +284,7 @@ export default function ExtractionReview({
                   <option value="answered">Answered</option>
                   <option value="archived">Archived</option>
                 </select>
+                <ChildSourceLink rawItemId={question.source_raw_item_id} />
               </li>
             ))}
           </ul>
@@ -336,6 +345,7 @@ export default function ExtractionReview({
 function toEditableTask(task: Memory['tasks'][number]): EditableTask {
   return {
     id: task.id,
+    source_raw_item_id: task.source_raw_item_id,
     title: task.title,
     description: task.description ?? '',
     priority: task.priority ?? '',
@@ -346,6 +356,7 @@ function toEditableTask(task: Memory['tasks'][number]): EditableTask {
 function toEditableIdea(idea: Memory['ideas'][number]): EditableIdea {
   return {
     id: idea.id,
+    source_raw_item_id: idea.source_raw_item_id,
     body: idea.body,
     status: idea.status
   };
@@ -354,10 +365,29 @@ function toEditableIdea(idea: Memory['ideas'][number]): EditableIdea {
 function toEditableDecision(decision: Memory['decisions'][number]): EditableDecision {
   return {
     id: decision.id,
+    source_raw_item_id: decision.source_raw_item_id,
     title: decision.title,
     rationale: decision.rationale ?? '',
     confidence: decision.confidence
   };
+}
+
+function toEditableQuestion(question: Memory['open_questions'][number]): EditableQuestion {
+  return {
+    id: question.id,
+    source_raw_item_id: question.source_raw_item_id,
+    question: question.question,
+    status: question.status
+  };
+}
+
+function ChildSourceLink({ rawItemId }: { rawItemId?: string }) {
+  if (!rawItemId) return null;
+  return (
+    <div className="border-t border-slate-100 pt-2 text-xs text-slate-500">
+      Source: <SourceLink rawItemId={rawItemId} label="open source item" />
+    </div>
+  );
 }
 
 function tempId(prefix: string): string {

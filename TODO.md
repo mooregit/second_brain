@@ -37,7 +37,7 @@
 - [x] Add editable task fields in `ExtractionReview`.
 - [x] Add editable idea fields in `ExtractionReview`.
 - [x] Add editable open question fields in `ExtractionReview`.
-- [ ] Add source links for every extracted child record in review UI.
+- [x] Add source links for every extracted child record in review UI.
 - [ ] Add edit/delete/archive controls for memories, projects, tasks, ideas, decisions, and questions from their native pages.
 - [ ] Add project reassignment controls for tasks, ideas, decisions, and questions outside the graph drawer.
 
