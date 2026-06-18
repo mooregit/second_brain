@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ReactFlow, { Background, Controls, Edge, Node, ReactFlowProvider, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type { GraphResponse } from '../api/graph';
@@ -124,6 +124,7 @@ function GraphCanvasInner({
   onNodeOpen?: (nodeId: string) => void;
 }) {
   const { setCenter } = useReactFlow();
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const filteredNodes = useMemo(
     () => graph.nodes.filter((node) => (!visibleTypes || visibleTypes.has(node.type)) && (!visibleNodeIds || visibleNodeIds.has(node.id))),
     [graph.nodes, visibleNodeIds, visibleTypes]
@@ -177,16 +178,17 @@ function GraphCanvasInner({
   });
   const edges: Edge[] = filteredEdges.map((edge) => {
     const isRelated = selectedNodeId ? edge.source === selectedNodeId || edge.target === selectedNodeId : true;
+    const isHovered = hoveredEdgeId === edge.id;
     return {
       id: edge.id,
       source: edge.source,
       target: edge.target,
-      label: showEdgeLabels || (selectedNodeId && isRelated) ? edge.label : undefined,
-      animated: Boolean(selectedNodeId && isRelated),
+      label: showEdgeLabels || isHovered || (selectedNodeId && isRelated) ? edge.label : undefined,
+      animated: Boolean((selectedNodeId && isRelated) || isHovered),
       style: {
-        stroke: isRelated ? '#64748b' : '#cbd5e1',
-        opacity: selectedNodeId && !isRelated ? 0.14 : 0.9,
-        strokeWidth: selectedNodeId && isRelated ? 2 : 1
+        stroke: isHovered ? '#f97316' : isRelated ? '#64748b' : '#cbd5e1',
+        opacity: selectedNodeId && !isRelated && !isHovered ? 0.14 : 0.9,
+        strokeWidth: (selectedNodeId && isRelated) || isHovered ? 2 : 1
       },
       labelStyle: { fill: '#475569', fontSize: 11 }
     };
@@ -207,6 +209,8 @@ function GraphCanvasInner({
         fitView
         onNodeClick={(_, node) => onNodeSelect?.(node.id)}
         onNodeDoubleClick={(_, node) => onNodeOpen?.(node.id)}
+        onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
+        onEdgeMouseLeave={() => setHoveredEdgeId(null)}
         onPaneClick={() => onNodeSelect?.(null)}
       >
         <Background />
