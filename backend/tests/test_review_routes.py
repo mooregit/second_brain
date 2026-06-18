@@ -5,10 +5,11 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.routes.ideas import IdeaCreate, IdeaPatch, create_idea, patch_idea
+from app.api.routes.decisions import DecisionCreate, create_decision, delete_decision
+from app.api.routes.ideas import IdeaCreate, IdeaPatch, create_idea, delete_idea, patch_idea
 from app.api.routes.memories import delete_memory
-from app.api.routes.questions import QuestionCreate, QuestionPatch, create_question, patch_question
-from app.api.routes.tasks import TaskCreate, TaskPatch, create_task, patch_task
+from app.api.routes.questions import QuestionCreate, QuestionPatch, create_question, delete_question, patch_question
+from app.api.routes.tasks import TaskCreate, TaskPatch, create_task, delete_task, patch_task
 from app.core.database import Base
 from app.models import Embedding, Idea, Memory, RawItem, Task
 from app.services.embedding_service import EmbeddingService
@@ -110,4 +111,40 @@ def test_delete_memory_removes_children_and_embeddings_but_keeps_source(db_sessi
     assert db_session.get(Memory, memory.id) is None
     assert db_session.get(Task, task.id) is None
     assert db_session.get(Idea, idea.id) is None
+    assert db_session.query(Embedding).count() == 0
+
+
+def test_delete_review_children_removes_embeddings(db_session: Session) -> None:
+    raw_item = RawItem(source_type="manual", title="Review source", body_text="Source note")
+    db_session.add(raw_item)
+    db_session.flush()
+    memory = Memory(
+        raw_item_id=raw_item.id,
+        memory_type="note",
+        summary="Review summary",
+        confidence=0.5,
+        validated_json={"projects": []},
+        raw_llm_output="{}",
+    )
+    db_session.add(memory)
+    db_session.commit()
+
+    task = asyncio.run(create_task(TaskCreate(memory_id=memory.id, title="Task"), db_session))
+    idea = asyncio.run(create_idea(IdeaCreate(memory_id=memory.id, body="Idea"), db_session))
+    decision = asyncio.run(create_decision(DecisionCreate(memory_id=memory.id, title="Decision"), db_session))
+    question = asyncio.run(create_question(QuestionCreate(memory_id=memory.id, question="Question?"), db_session))
+    db_session.add_all(
+        [
+            Embedding(owner_type="task", owner_id=task["id"], model="test", vector_json=[1], text_hash="task"),
+            Embedding(owner_type="idea", owner_id=idea["id"], model="test", vector_json=[1], text_hash="idea"),
+            Embedding(owner_type="decision", owner_id=decision["id"], model="test", vector_json=[1], text_hash="decision"),
+            Embedding(owner_type="open_question", owner_id=question["id"], model="test", vector_json=[1], text_hash="question"),
+        ]
+    )
+    db_session.commit()
+
+    assert delete_task(task["id"], db_session) == {"status": "deleted", "id": task["id"]}
+    assert delete_idea(idea["id"], db_session) == {"status": "deleted", "id": idea["id"]}
+    assert delete_decision(decision["id"], db_session) == {"status": "deleted", "id": decision["id"]}
+    assert delete_question(question["id"], db_session) == {"status": "deleted", "id": question["id"]}
     assert db_session.query(Embedding).count() == 0

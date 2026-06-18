@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Decision, Memory, Project
+from app.models import Decision, Embedding, Memory, Project
 from app.services.embedding_service import EmbeddingService
 
 router = APIRouter(prefix="/decisions", tags=["decisions"])
@@ -79,6 +79,18 @@ async def patch_decision(decision_id: str, payload: DecisionPatch, db: Session =
     db.refresh(decision)
     await _embed_decision(decision, db)
     return decision_dict(decision)
+
+
+@router.delete("/{decision_id}")
+def delete_decision(decision_id: str, db: Session = Depends(get_db)) -> dict:
+    decision = db.get(Decision, decision_id)
+    if not decision:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    for embedding in db.scalars(select(Embedding).where(Embedding.owner_type == "decision", Embedding.owner_id == decision_id)).all():
+        db.delete(embedding)
+    db.delete(decision)
+    db.commit()
+    return {"status": "deleted", "id": decision_id}
 
 
 def _project_id_from_memory(memory: Memory, db: Session) -> str | None:

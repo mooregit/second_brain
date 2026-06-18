@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Memory, Project, Task
+from app.models import Embedding, Memory, Project, Task
 from app.services.embedding_service import EmbeddingService
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -88,6 +88,18 @@ async def patch_task(task_id: str, payload: TaskPatch, db: Session = Depends(get
     db.refresh(task)
     await _embed_task(task, db)
     return task_dict(task)
+
+
+@router.delete("/{task_id}")
+def delete_task(task_id: str, db: Session = Depends(get_db)) -> dict:
+    task = db.get(Task, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    for embedding in db.scalars(select(Embedding).where(Embedding.owner_type == "task", Embedding.owner_id == task_id)).all():
+        db.delete(embedding)
+    db.delete(task)
+    db.commit()
+    return {"status": "deleted", "id": task_id}
 
 
 def _project_id_from_memory(memory: Memory, db: Session) -> str | None:

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Memory, OpenQuestion, Project
+from app.models import Embedding, Memory, OpenQuestion, Project
 from app.services.embedding_service import EmbeddingService
 
 router = APIRouter(prefix="/open-questions", tags=["open-questions"])
@@ -78,6 +78,18 @@ async def patch_question(question_id: str, payload: QuestionPatch, db: Session =
     db.refresh(question)
     await _embed_question(question, db)
     return question_dict(question)
+
+
+@router.delete("/{question_id}")
+def delete_question(question_id: str, db: Session = Depends(get_db)) -> dict:
+    question = db.get(OpenQuestion, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Open question not found")
+    for embedding in db.scalars(select(Embedding).where(Embedding.owner_type == "open_question", Embedding.owner_id == question_id)).all():
+        db.delete(embedding)
+    db.delete(question)
+    db.commit()
+    return {"status": "deleted", "id": question_id}
 
 
 def _project_id_from_memory(memory: Memory, db: Session) -> str | None:

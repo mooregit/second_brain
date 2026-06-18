@@ -1,11 +1,12 @@
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
-import { Brain, CheckSquare, GitBranch, InboxIcon, Lightbulb, MessageSquareText, Settings as SettingsIcon } from 'lucide-react';
+import { Brain, CheckSquare, GitBranch, InboxIcon, Lightbulb, MessageSquareText, Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import Inbox from './pages/Inbox';
 import ItemDetail from './pages/ItemDetail';
 import Ask from './pages/Ask';
 import Graph from './pages/Graph';
 import Memories from './pages/Memories';
 import Projects from './pages/Projects';
+import Ideas from './pages/Ideas';
 import Tasks from './pages/Tasks';
 import Decisions from './pages/Decisions';
 import OpenQuestions from './pages/OpenQuestions';
@@ -31,6 +32,10 @@ export default function App() {
             </NavLink>
             <NavLink to="/memories" className={navClass}>Memories</NavLink>
             <NavLink to="/projects" className={navClass}>Projects</NavLink>
+            <NavLink to="/ideas" className={navClass}>
+              <Sparkles size={16} />
+              Ideas
+            </NavLink>
             <NavLink to="/tasks" className={navClass}>
               <CheckSquare size={16} />
               Tasks
@@ -61,6 +66,7 @@ export default function App() {
           <Route path="/items/:id" element={<ItemDetail />} />
           <Route path="/memories" element={<Memories />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/ideas" element={<Ideas />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/decisions" element={<Decisions />} />
           <Route path="/open-questions" element={<OpenQuestions />} />

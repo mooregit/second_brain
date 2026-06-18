@@ -69,6 +69,10 @@ export function patchTask(id: string, payload: TaskPatch) {
   });
 }
 
+export function deleteTask(id: string) {
+  return api<{ status: string; id: string }>(`/tasks/${id}`, { method: 'DELETE' });
+}
+
 export function createIdea(payload: IdeaCreate) {
   return api<Memory['ideas'][number]>('/ideas', {
     method: 'POST',
@@ -81,6 +85,10 @@ export function patchIdea(id: string, payload: IdeaPatch) {
     method: 'PATCH',
     body: JSON.stringify(payload)
   });
+}
+
+export function deleteIdea(id: string) {
+  return api<{ status: string; id: string }>(`/ideas/${id}`, { method: 'DELETE' });
 }
 
 export function createDecision(payload: DecisionCreate) {
@@ -97,6 +105,10 @@ export function patchDecision(id: string, payload: DecisionPatch) {
   });
 }
 
+export function deleteDecision(id: string) {
+  return api<{ status: string; id: string }>(`/decisions/${id}`, { method: 'DELETE' });
+}
+
 export function createQuestion(payload: QuestionCreate) {
   return api<Memory['open_questions'][number]>('/open-questions', {
     method: 'POST',
@@ -109,4 +121,8 @@ export function patchQuestion(id: string, payload: QuestionPatch) {
     method: 'PATCH',
     body: JSON.stringify(payload)
   });
+}
+
+export function deleteQuestion(id: string) {
+  return api<{ status: string; id: string }>(`/open-questions/${id}`, { method: 'DELETE' });
 }

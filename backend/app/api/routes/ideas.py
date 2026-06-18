@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Idea, Memory, Project
+from app.models import Embedding, Idea, Memory, Project
 from app.services.embedding_service import EmbeddingService
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
@@ -75,6 +75,18 @@ async def patch_idea(idea_id: str, payload: IdeaPatch, db: Session = Depends(get
     db.refresh(idea)
     await _embed_idea(idea, db)
     return idea_dict(idea)
+
+
+@router.delete("/{idea_id}")
+def delete_idea(idea_id: str, db: Session = Depends(get_db)) -> dict:
+    idea = db.get(Idea, idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    for embedding in db.scalars(select(Embedding).where(Embedding.owner_type == "idea", Embedding.owner_id == idea_id)).all():
+        db.delete(embedding)
+    db.delete(idea)
+    db.commit()
+    return {"status": "deleted", "id": idea_id}
 
 
 def _project_id_from_memory(memory: Memory, db: Session) -> str | None:

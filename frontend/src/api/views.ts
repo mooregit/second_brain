@@ -2,6 +2,7 @@ import { api } from './client';
 
 export type Project = { id: string; name: string; description: string | null; created_at: string };
 export type Task = { id: string; title: string; description: string | null; priority: string | null; status: string; source_raw_item_id: string };
+export type Idea = { id: string; body: string; status: string; source_raw_item_id: string };
 export type Decision = { id: string; title: string; rationale: string | null; confidence: number; source_raw_item_id: string };
 export type OpenQuestion = { id: string; question: string; status: string; source_raw_item_id: string };
 export type Settings = {
@@ -26,6 +27,7 @@ export const patchProject = (projectId: string, payload: { name?: string; descri
   });
 export const deleteProject = (projectId: string) => api<{ status: string; id: string }>(`/projects/${projectId}`, { method: 'DELETE' });
 export const listTasks = (showArchived = false) => api<Task[]>(`/tasks?show_archived=${showArchived}`);
+export const listIdeas = () => api<Idea[]>('/ideas');
 export const listDecisions = () => api<Decision[]>('/decisions');
 export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
 export const getSettings = () => api<Settings>('/settings');
