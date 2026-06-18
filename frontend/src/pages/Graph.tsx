@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ExternalLink, Loader2, Save, Search, X } from 'lucide-react';
 import { GraphNode, getGraph } from '../api/graph';
 import { patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
@@ -11,6 +11,7 @@ const defaultTypes = ['project', 'source', 'task', 'idea', 'decision', 'question
 
 export default function Graph() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showArchived, setShowArchived] = useState(false);
   const [showTags, setShowTags] = useState(true);
   const [showEntities, setShowEntities] = useState(false);
@@ -84,6 +85,25 @@ export default function Graph() {
     }
     selectNode(match.id);
     setSearchMessage(`Focused ${match.label}`);
+  }
+
+  function openNode(nodeId: string) {
+    const node = graph.data?.nodes.find((candidate) => candidate.id === nodeId);
+    if (!node) return;
+    const rawItemId = stringMetadata(node, 'raw_item_id');
+    if (rawItemId) {
+      navigate(`/items/${rawItemId}`);
+      return;
+    }
+    const routeByType: Record<string, string> = {
+      project: '/projects',
+      task: '/tasks',
+      idea: '/ideas',
+      decision: '/decisions',
+      question: '/open-questions'
+    };
+    const route = routeByType[node.type];
+    if (route) navigate(route);
   }
 
   return (
@@ -202,6 +222,7 @@ export default function Graph() {
             showEdgeLabels={showEdgeLabels}
             selectedNodeId={selectedNodeId}
             onNodeSelect={selectNode}
+            onNodeOpen={openNode}
           />
         ) : (
           <div>Loading...</div>
@@ -261,7 +282,7 @@ function GraphDetailDrawer({
   if (!node) {
     return (
       <aside className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
-        Select a graph node to inspect it, highlight nearby records, or edit supported node labels.
+        Select a graph node to inspect it, highlight nearby records, or edit supported node labels. Double-click a node to open its source or native page.
       </aside>
     );
   }
@@ -330,6 +351,7 @@ function GraphDetailDrawer({
           Open source item
         </Link>
       )}
+      <p className="mt-3 text-xs text-slate-500">Double-click this node in the graph to open its source or native page.</p>
       <div className="mt-4 break-all border-t border-slate-100 pt-3 text-xs text-slate-400">{node.id}</div>
     </aside>
   );

@@ -22,7 +22,8 @@ export default function GraphCanvas({
   relationshipTypeFilter,
   showEdgeLabels,
   selectedNodeId,
-  onNodeSelect
+  onNodeSelect,
+  onNodeOpen
 }: {
   graph: GraphResponse;
   visibleTypes?: Set<string>;
@@ -31,6 +32,7 @@ export default function GraphCanvas({
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
+  onNodeOpen?: (nodeId: string) => void;
 }) {
   return (
     <ReactFlowProvider>
@@ -42,6 +44,7 @@ export default function GraphCanvas({
         showEdgeLabels={showEdgeLabels}
         selectedNodeId={selectedNodeId}
         onNodeSelect={onNodeSelect}
+        onNodeOpen={onNodeOpen}
       />
     </ReactFlowProvider>
   );
@@ -54,7 +57,8 @@ function GraphCanvasInner({
   relationshipTypeFilter,
   showEdgeLabels,
   selectedNodeId,
-  onNodeSelect
+  onNodeSelect,
+  onNodeOpen
 }: {
   graph: GraphResponse;
   visibleTypes?: Set<string>;
@@ -63,6 +67,7 @@ function GraphCanvasInner({
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
+  onNodeOpen?: (nodeId: string) => void;
 }) {
   const { setCenter } = useReactFlow();
   const filteredNodes = useMemo(
@@ -134,7 +139,14 @@ function GraphCanvasInner({
 
   return (
     <div className="h-[680px] w-full overflow-hidden rounded-md border border-slate-300 bg-white">
-      <ReactFlow nodes={nodes} edges={edges} fitView onNodeClick={(_, node) => onNodeSelect?.(node.id)} onPaneClick={() => onNodeSelect?.(null)}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        fitView
+        onNodeClick={(_, node) => onNodeSelect?.(node.id)}
+        onNodeDoubleClick={(_, node) => onNodeOpen?.(node.id)}
+        onPaneClick={() => onNodeSelect?.(null)}
+      >
         <Background />
         <Controls />
       </ReactFlow>

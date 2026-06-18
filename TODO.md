@@ -61,7 +61,7 @@
 - [x] Add graph filters for node type.
 - [x] Add graph filters for relationship type.
 - [x] Improve graph layout so projects, work items, tags, and extracted entities are visually grouped.
-- [ ] Make graph node clicks open source/detail pages.
+- [x] Make graph node clicks open source/detail pages.
 - [x] Add a graph node detail drawer with type, source item, summary/body, project, status, tags, and edit controls.
 - [x] Add graph search that can find and focus a node by label.
 - [x] Highlight selected node neighbors and dim unrelated graph nodes.
