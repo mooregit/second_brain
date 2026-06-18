@@ -127,7 +127,7 @@ function GraphCanvasInner({
   onNodeSelect?: (nodeId: string | null) => void;
   onNodeOpen?: (nodeId: string) => void;
 }) {
-  const { setCenter } = useReactFlow();
+  const { fitView, getZoom, setCenter } = useReactFlow();
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const filteredNodes = useMemo(
     () => graph.nodes.filter((node) => (!visibleTypes || visibleTypes.has(node.type)) && (!visibleNodeIds || visibleNodeIds.has(node.id))),
@@ -163,7 +163,7 @@ function GraphCanvasInner({
       type: 'default',
       className: `graph-node-${node.type}`,
       style: {
-        width: 180,
+        width: 170,
         minHeight: 54,
         border: isSelected ? '2px solid #f97316' : `1px solid ${theme.border}`,
         background: theme.background,
@@ -192,19 +192,26 @@ function GraphCanvasInner({
     };
   });
 
+  const fitViewKey = `${layoutMode}:${filteredNodes.map((node) => node.id).join('|')}`;
+
+  useEffect(() => {
+    void fitView({ padding: 0.18, minZoom: 0.15, maxZoom: 1.1, duration: 250 });
+  }, [fitView, fitViewKey]);
+
   useEffect(() => {
     if (!selectedNodeId) return;
     const node = nodes.find((candidate) => candidate.id === selectedNodeId);
     if (!node) return;
-    void setCenter(node.position.x + 90, node.position.y + 35, { zoom: 1.2, duration: 450 });
-  }, [nodes, selectedNodeId, setCenter]);
+    void setCenter(node.position.x + 90, node.position.y + 35, { zoom: getZoom(), duration: 250 });
+  }, [getZoom, nodes, selectedNodeId, setCenter]);
 
   return (
     <div className="h-[680px] w-full overflow-hidden rounded-md border border-slate-300 bg-white">
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        fitView
+        minZoom={0.08}
+        maxZoom={4}
         onNodeClick={(_, node) => onNodeSelect?.(node.id)}
         onNodeDoubleClick={(_, node) => onNodeOpen?.(node.id)}
         onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
@@ -233,7 +240,7 @@ function columnPositions(nodes: GraphNode[], layoutMode: ColumnLayoutMode): Map<
       const column = columnByType[node.type] ?? 3;
       const row = rowByColumn.get(column) ?? 0;
       rowByColumn.set(column, row + 1);
-      return [node.id, { x: column * 310, y: row * 120 }];
+      return [node.id, { x: column * 260, y: row * 96 }];
     })
   );
 }
@@ -242,7 +249,7 @@ function clusterPositions(nodes: GraphNode[], edges: GraphResponse['edges']): Ma
   const sortedNodes = [...nodes].sort((left, right) => left.id.localeCompare(right.id));
   const clusterKeys = [...new Set(sortedNodes.map(clusterKey))].sort();
   const clusterCenters = new Map<string, { x: number; y: number }>();
-  const radius = Math.max(260, Math.ceil(clusterKeys.length / 4) * 220);
+  const radius = Math.max(180, Math.ceil(clusterKeys.length / 4) * 150);
   clusterKeys.forEach((key, index) => {
     const angle = (index / Math.max(clusterKeys.length, 1)) * Math.PI * 2;
     clusterCenters.set(key, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
@@ -253,17 +260,17 @@ function clusterPositions(nodes: GraphNode[], edges: GraphResponse['edges']): Ma
     return {
       id: node.id,
       cluster: clusterKey(node),
-      x: center.x + Math.cos(angle) * 80,
-      y: center.y + Math.sin(angle) * 80
+      x: center.x + Math.cos(angle) * 55,
+      y: center.y + Math.sin(angle) * 55
     };
   });
   const simulationLinks = edges.map((edge) => ({ source: edge.source, target: edge.target }));
   const simulation = forceSimulation(simulationNodes)
-    .force('link', forceLink(simulationLinks).id((node: any) => node.id).distance(170).strength(0.35))
-    .force('charge', forceManyBody().strength(-520))
-    .force('collide', forceCollide(120).strength(0.9))
-    .force('x', forceX((node: any) => clusterCenters.get(node.cluster)?.x ?? 0).strength(0.09))
-    .force('y', forceY((node: any) => clusterCenters.get(node.cluster)?.y ?? 0).strength(0.09))
+    .force('link', forceLink(simulationLinks).id((node: any) => node.id).distance(120).strength(0.48))
+    .force('charge', forceManyBody().strength(-300))
+    .force('collide', forceCollide(104).strength(0.92))
+    .force('x', forceX((node: any) => clusterCenters.get(node.cluster)?.x ?? 0).strength(0.13))
+    .force('y', forceY((node: any) => clusterCenters.get(node.cluster)?.y ?? 0).strength(0.13))
     .stop();
   for (let tick = 0; tick < 220; tick += 1) simulation.tick();
   const minX = Math.min(...simulationNodes.map((node) => node.x ?? 0));
@@ -272,8 +279,8 @@ function clusterPositions(nodes: GraphNode[], edges: GraphResponse['edges']): Ma
     simulationNodes.map((node) => [
       node.id,
       {
-        x: Math.round((node.x ?? 0) - minX + 80),
-        y: Math.round((node.y ?? 0) - minY + 80)
+        x: Math.round((node.x ?? 0) - minX + 60),
+        y: Math.round((node.y ?? 0) - minY + 60)
       }
     ])
   );
