@@ -65,7 +65,7 @@
 - [x] Add a graph node detail drawer with type, source item, summary/body, project, status, tags, and edit controls.
 - [x] Add graph search that can find and focus a node by label.
 - [x] Highlight selected node neighbors and dim unrelated graph nodes.
-- [ ] Add graph layout modes for project map, source map, task map, and entity map.
+- [x] Add graph layout modes for project map, source map, task map, and entity map.
 - [ ] Show edge labels on hover or selected-node focus instead of always relying on full graph labels.
 - [ ] Add clearer node type styling with restrained colors/icons for projects, tasks, questions, ideas, decisions, tags, sources, and entities.
 - [ ] Add graph cleanup tools for merging duplicate nodes, renaming tags/entities, reassigning records to projects, and archiving/deleting from the graph.

@@ -5,7 +5,7 @@ import { ExternalLink, Loader2, Save, Search, X } from 'lucide-react';
 import { GraphNode, getGraph } from '../api/graph';
 import { patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
 import { patchProject } from '../api/views';
-import GraphCanvas from '../components/GraphCanvas';
+import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
 
 const defaultTypes = ['project', 'source', 'task', 'idea', 'decision', 'question'];
 
@@ -16,6 +16,7 @@ export default function Graph() {
   const [showTags, setShowTags] = useState(true);
   const [showEntities, setShowEntities] = useState(false);
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('project');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -165,6 +166,19 @@ export default function Graph() {
           Focus
         </button>
         {searchMessage && <div className="text-sm text-slate-500">{searchMessage}</div>}
+        <label className="ml-auto flex items-center gap-2 text-sm text-slate-600">
+          Layout
+          <select
+            className="rounded-md border border-slate-300 px-2 py-2 text-sm"
+            value={layoutMode}
+            onChange={(event) => setLayoutMode(event.target.value as GraphLayoutMode)}
+          >
+            <option value="project">Project map</option>
+            <option value="source">Source map</option>
+            <option value="task">Task map</option>
+            <option value="entity">Entity map</option>
+          </select>
+        </label>
       </div>
       <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-6">
         <label className="block text-xs font-medium text-slate-600">
@@ -219,6 +233,7 @@ export default function Graph() {
             visibleTypes={visibleTypes}
             visibleNodeIds={visibleNodeIds}
             relationshipTypeFilter={relationshipTypeFilter}
+            layoutMode={layoutMode}
             showEdgeLabels={showEdgeLabels}
             selectedNodeId={selectedNodeId}
             onNodeSelect={selectNode}

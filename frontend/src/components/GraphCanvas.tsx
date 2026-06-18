@@ -3,16 +3,65 @@ import ReactFlow, { Background, Controls, Edge, Node, ReactFlowProvider, useReac
 import 'reactflow/dist/style.css';
 import type { GraphResponse } from '../api/graph';
 
-const columnByType: Record<string, number> = {
+export type GraphLayoutMode = 'project' | 'source' | 'task' | 'entity';
+
+const columnByTypeByLayout: Record<GraphLayoutMode, Record<string, number>> = {
+  project: {
+    project: 0,
+    source: 0,
+    task: 1,
+    idea: 1,
+    decision: 1,
+    question: 1,
+    tag: 2,
+    person: 2,
+    entity: 3
+  },
+  source: {
+    source: 0,
+    project: 1,
+    task: 1,
+    idea: 1,
+    decision: 1,
+    question: 1,
+    tag: 2,
+    person: 2,
+    entity: 3
+  },
+  task: {
+    task: 0,
+    question: 1,
+    decision: 1,
+    idea: 1,
+    project: 2,
+    source: 2,
+    tag: 3,
+    person: 3,
+    entity: 3
+  },
+  entity: {
+    tag: 0,
+    person: 0,
+    entity: 0,
+    project: 1,
+    source: 1,
+    task: 2,
+    idea: 2,
+    decision: 2,
+    question: 2
+  }
+};
+
+const rowWeightByType: Record<string, number> = {
   project: 0,
-  source: 0,
-  task: 1,
-  idea: 1,
-  decision: 1,
-  question: 1,
-  tag: 2,
-  person: 2,
-  entity: 3
+  source: 1,
+  task: 2,
+  question: 3,
+  decision: 4,
+  idea: 5,
+  tag: 6,
+  person: 7,
+  entity: 8
 };
 
 export default function GraphCanvas({
@@ -20,6 +69,7 @@ export default function GraphCanvas({
   visibleTypes,
   visibleNodeIds,
   relationshipTypeFilter,
+  layoutMode = 'project',
   showEdgeLabels,
   selectedNodeId,
   onNodeSelect,
@@ -29,6 +79,7 @@ export default function GraphCanvas({
   visibleTypes?: Set<string>;
   visibleNodeIds?: Set<string>;
   relationshipTypeFilter?: string;
+  layoutMode?: GraphLayoutMode;
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
@@ -41,6 +92,7 @@ export default function GraphCanvas({
         visibleTypes={visibleTypes}
         visibleNodeIds={visibleNodeIds}
         relationshipTypeFilter={relationshipTypeFilter}
+        layoutMode={layoutMode}
         showEdgeLabels={showEdgeLabels}
         selectedNodeId={selectedNodeId}
         onNodeSelect={onNodeSelect}
@@ -55,6 +107,7 @@ function GraphCanvasInner({
   visibleTypes,
   visibleNodeIds,
   relationshipTypeFilter,
+  layoutMode,
   showEdgeLabels,
   selectedNodeId,
   onNodeSelect,
@@ -64,6 +117,7 @@ function GraphCanvasInner({
   visibleTypes?: Set<string>;
   visibleNodeIds?: Set<string>;
   relationshipTypeFilter?: string;
+  layoutMode: GraphLayoutMode;
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
@@ -89,7 +143,15 @@ function GraphCanvasInner({
     return ids;
   }, [filteredEdges, selectedNodeId]);
   const rowByColumn = new Map<number, number>();
-  const nodes: Node[] = filteredNodes.map((node) => {
+  const columnByType = columnByTypeByLayout[layoutMode];
+  const sortedNodes = [...filteredNodes].sort((left, right) => {
+    const columnDiff = (columnByType[left.type] ?? 3) - (columnByType[right.type] ?? 3);
+    if (columnDiff !== 0) return columnDiff;
+    const typeDiff = (rowWeightByType[left.type] ?? 99) - (rowWeightByType[right.type] ?? 99);
+    if (typeDiff !== 0) return typeDiff;
+    return left.label.localeCompare(right.label);
+  });
+  const nodes: Node[] = sortedNodes.map((node) => {
     const column = columnByType[node.type] ?? 3;
     const row = rowByColumn.get(column) ?? 0;
     rowByColumn.set(column, row + 1);
