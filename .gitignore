@@ -9,6 +9,8 @@ dist/
 data/sqlite/*.db
 data/uploads/*
 !data/uploads/.gitkeep
+data/media/*
+!data/media/.gitkeep
 data/inbox/*
 !data/inbox/.gitkeep
 data/gmail/*

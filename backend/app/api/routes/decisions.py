@@ -25,6 +25,7 @@ class DecisionPatch(BaseModel):
     title: str | None = None
     rationale: str | None = None
     confidence: float | None = Field(default=None, ge=0, le=1)
+    project_id: str | None = None
 
 
 def decision_dict(decision: Decision) -> dict:

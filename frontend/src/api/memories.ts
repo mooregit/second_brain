@@ -8,3 +8,6 @@ export function patchMemory(id: string, payload: { summary?: string; tags?: stri
   });
 }
 
+export function deleteMemory(id: string) {
+  return api<{ status: string; id: string }>(`/memories/${id}`, { method: 'DELETE' });
+}

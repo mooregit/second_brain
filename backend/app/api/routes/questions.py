@@ -23,6 +23,7 @@ class QuestionCreate(BaseModel):
 class QuestionPatch(BaseModel):
     question: str | None = None
     status: str | None = None
+    project_id: str | None = None
 
 
 def question_dict(question: OpenQuestion) -> dict:

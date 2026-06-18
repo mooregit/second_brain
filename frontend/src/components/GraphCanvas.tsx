@@ -1,4 +1,5 @@
-import ReactFlow, { Background, Controls, Edge, Node } from 'reactflow';
+import { useEffect, useMemo } from 'react';
+import ReactFlow, { Background, Controls, Edge, Node, ReactFlowProvider, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type { GraphResponse } from '../api/graph';
 
@@ -17,40 +18,125 @@ const columnByType: Record<string, number> = {
 export default function GraphCanvas({
   graph,
   visibleTypes,
-  showEdgeLabels
+  showEdgeLabels,
+  selectedNodeId,
+  onNodeSelect
 }: {
   graph: GraphResponse;
   visibleTypes?: Set<string>;
   showEdgeLabels?: boolean;
+  selectedNodeId?: string | null;
+  onNodeSelect?: (nodeId: string | null) => void;
 }) {
-  const filteredNodes = visibleTypes ? graph.nodes.filter((node) => visibleTypes.has(node.type)) : graph.nodes;
-  const visibleNodeIds = new Set(filteredNodes.map((node) => node.id));
+  return (
+    <ReactFlowProvider>
+      <GraphCanvasInner
+        graph={graph}
+        visibleTypes={visibleTypes}
+        showEdgeLabels={showEdgeLabels}
+        selectedNodeId={selectedNodeId}
+        onNodeSelect={onNodeSelect}
+      />
+    </ReactFlowProvider>
+  );
+}
+
+function GraphCanvasInner({
+  graph,
+  visibleTypes,
+  showEdgeLabels,
+  selectedNodeId,
+  onNodeSelect
+}: {
+  graph: GraphResponse;
+  visibleTypes?: Set<string>;
+  showEdgeLabels?: boolean;
+  selectedNodeId?: string | null;
+  onNodeSelect?: (nodeId: string | null) => void;
+}) {
+  const { setCenter } = useReactFlow();
+  const filteredNodes = useMemo(() => (visibleTypes ? graph.nodes.filter((node) => visibleTypes.has(node.type)) : graph.nodes), [graph.nodes, visibleTypes]);
+  const visibleNodeIds = useMemo(() => new Set(filteredNodes.map((node) => node.id)), [filteredNodes]);
+  const filteredEdges = useMemo(() => graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)), [graph.edges, visibleNodeIds]);
+  const relatedNodeIds = useMemo(() => {
+    if (!selectedNodeId) return null;
+    const ids = new Set([selectedNodeId]);
+    for (const edge of filteredEdges) {
+      if (edge.source === selectedNodeId) ids.add(edge.target);
+      if (edge.target === selectedNodeId) ids.add(edge.source);
+    }
+    return ids;
+  }, [filteredEdges, selectedNodeId]);
   const rowByColumn = new Map<number, number>();
   const nodes: Node[] = filteredNodes.map((node) => {
     const column = columnByType[node.type] ?? 3;
     const row = rowByColumn.get(column) ?? 0;
     rowByColumn.set(column, row + 1);
+    const isSelected = selectedNodeId === node.id;
+    const isDimmed = relatedNodeIds ? !relatedNodeIds.has(node.id) : false;
     return {
       id: node.id,
       data: { label: node.label },
       position: { x: column * 310, y: row * 120 },
       type: 'default',
-      className: `graph-node-${node.type}`
+      className: `graph-node-${node.type}`,
+      style: {
+        width: 180,
+        minHeight: 54,
+        border: isSelected ? '2px solid #f97316' : '1px solid #cbd5e1',
+        background: nodeBackground(node.type),
+        color: '#0f172a',
+        opacity: isDimmed ? 0.22 : 1,
+        boxShadow: isSelected ? '0 0 0 3px rgba(249, 115, 22, 0.18)' : undefined,
+        transition: 'opacity 160ms ease, box-shadow 160ms ease, border-color 160ms ease'
+      }
     };
   });
-  const edges: Edge[] = graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)).map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    label: showEdgeLabels ? edge.label : undefined
-  }));
+  const edges: Edge[] = filteredEdges.map((edge) => {
+    const isRelated = selectedNodeId ? edge.source === selectedNodeId || edge.target === selectedNodeId : true;
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: showEdgeLabels || (selectedNodeId && isRelated) ? edge.label : undefined,
+      animated: Boolean(selectedNodeId && isRelated),
+      style: {
+        stroke: isRelated ? '#64748b' : '#cbd5e1',
+        opacity: selectedNodeId && !isRelated ? 0.14 : 0.9,
+        strokeWidth: selectedNodeId && isRelated ? 2 : 1
+      },
+      labelStyle: { fill: '#475569', fontSize: 11 }
+    };
+  });
+
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const node = nodes.find((candidate) => candidate.id === selectedNodeId);
+    if (!node) return;
+    void setCenter(node.position.x + 90, node.position.y + 35, { zoom: 1.2, duration: 450 });
+  }, [nodes, selectedNodeId, setCenter]);
 
   return (
     <div className="h-[680px] w-full overflow-hidden rounded-md border border-slate-300 bg-white">
-      <ReactFlow nodes={nodes} edges={edges} fitView>
+      <ReactFlow nodes={nodes} edges={edges} fitView onNodeClick={(_, node) => onNodeSelect?.(node.id)} onPaneClick={() => onNodeSelect?.(null)}>
         <Background />
         <Controls />
       </ReactFlow>
     </div>
   );
+}
+
+function nodeBackground(type: string) {
+  const backgrounds: Record<string, string> = {
+    project: '#fff7ed',
+    source: '#f8fafc',
+    task: '#eef2ff',
+    idea: '#ecfdf5',
+    decision: '#fefce8',
+    question: '#fdf2f8',
+    tag: '#f1f5f9',
+    person: '#eff6ff',
+    entity: '#f5f3ff'
+  };
+  return backgrounds[type] ?? '#ffffff';
 }

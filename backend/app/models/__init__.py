@@ -8,6 +8,7 @@ from app.models.email_message import EmailMessage
 from app.models.file_asset import FileAsset
 from app.models.idea import Idea
 from app.models.memory import Memory, memory_tags
+from app.models.media_artifact import MediaArtifact
 from app.models.open_question import OpenQuestion
 from app.models.person import Person
 from app.models.processing_run import ProcessingRun
@@ -28,6 +29,7 @@ __all__ = [
     "FileAsset",
     "Idea",
     "Memory",
+    "MediaArtifact",
     "OpenQuestion",
     "Person",
     "ProcessingRun",

@@ -27,6 +27,7 @@ class TaskPatch(BaseModel):
     description: str | None = None
     priority: str | None = None
     status: str | None = None
+    project_id: str | None = None
 
 
 def task_dict(task: Task) -> dict:

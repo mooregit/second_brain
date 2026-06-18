@@ -1,8 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { FolderSync, Inbox as InboxIcon, Loader2, Plus, Upload } from 'lucide-react';
-import { createManualItem, listItems, scanInboxFolder, uploadItem } from '../api/items';
+import { FolderSync, Inbox as InboxIcon, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { createManualItem, deleteItem, listItems, scanInboxFolder, uploadItem } from '../api/items';
 import { syncGmail } from '../api/gmail';
 
 export default function Inbox() {
@@ -28,6 +28,15 @@ export default function Inbox() {
     mutationFn: () => syncGmail(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] })
   });
+  const deleteMutation = useMutation({
+    mutationFn: deleteItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['memories'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+    }
+  });
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -45,11 +54,29 @@ export default function Inbox() {
           {items.data?.map((item) => (
             <Link key={item.id} to={`/items/${item.id}`} className="block py-3 hover:bg-slate-50">
               <div className="flex items-center justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="font-medium">{item.title}</div>
                   <div className="line-clamp-1 text-sm text-slate-500">{item.body_text}</div>
                 </div>
-                <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">{item.status}</span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">{item.status}</span>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (window.confirm(`Delete inbox item "${item.title}" and all extracted records?`)) {
+                        deleteMutation.mutate(item.id);
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="rounded-md border border-rose-200 p-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                    title="Delete inbox item"
+                    aria-label={`Delete ${item.title}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             </Link>
           ))}

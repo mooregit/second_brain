@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models import Memory, Tag
+from app.models import Embedding, Memory, Tag
 from app.schemas.memory import MemoryOut, MemoryPatch
 
 router = APIRouter(prefix="/memories", tags=["memories"])
@@ -71,3 +71,28 @@ def patch_memory(memory_id: str, payload: MemoryPatch, db: Session = Depends(get
     db.commit()
     db.refresh(memory)
     return memory_out(memory)
+
+
+@router.delete("/{memory_id}")
+def delete_memory(memory_id: str, db: Session = Depends(get_db)) -> dict:
+    memory = db.scalars(
+        select(Memory)
+        .where(Memory.id == memory_id)
+        .options(selectinload(Memory.tasks), selectinload(Memory.ideas), selectinload(Memory.decisions), selectinload(Memory.open_questions))
+    ).first()
+    if not memory:
+        raise HTTPException(status_code=404, detail="Memory not found")
+
+    child_owner_ids: list[tuple[str, str]] = [("memory", memory.id)]
+    child_owner_ids.extend(("task", task.id) for task in memory.tasks)
+    child_owner_ids.extend(("idea", idea.id) for idea in memory.ideas)
+    child_owner_ids.extend(("decision", decision.id) for decision in memory.decisions)
+    child_owner_ids.extend(("open_question", question.id) for question in memory.open_questions)
+
+    for owner_type, owner_id in child_owner_ids:
+        for embedding in db.scalars(select(Embedding).where(Embedding.owner_type == owner_type, Embedding.owner_id == owner_id)).all():
+            db.delete(embedding)
+
+    db.delete(memory)
+    db.commit()
+    return {"status": "deleted", "id": memory_id}

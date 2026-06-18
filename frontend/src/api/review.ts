@@ -6,6 +6,7 @@ export type TaskPatch = {
   description?: string | null;
   priority?: string | null;
   status?: string;
+  project_id?: string | null;
 };
 
 export type TaskCreate = {
@@ -19,6 +20,7 @@ export type TaskCreate = {
 export type IdeaPatch = {
   body?: string;
   status?: string;
+  project_id?: string | null;
 };
 
 export type IdeaCreate = {
@@ -31,6 +33,7 @@ export type DecisionPatch = {
   title?: string;
   rationale?: string | null;
   confidence?: number;
+  project_id?: string | null;
 };
 
 export type DecisionCreate = {
@@ -43,6 +46,7 @@ export type DecisionCreate = {
 export type QuestionPatch = {
   question?: string;
   status?: string;
+  project_id?: string | null;
 };
 
 export type QuestionCreate = {

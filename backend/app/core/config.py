@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     gmail_credentials_path: str = "../data/gmail/credentials.json"
     gmail_token_path: str = "../data/gmail/token.json"
     gmail_oauth_port: int = 8090
+    media_artifacts_folder: str = "../data/media"
+    media_transcription_backend: str = "faster-whisper"
+    media_transcription_model: str = "base"
+    media_transcription_device: str = "cpu"
+    media_transcription_compute_type: str = "int8"
+    media_transcription_command: str = ""
 
     model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 

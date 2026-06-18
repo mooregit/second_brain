@@ -23,6 +23,7 @@ class IdeaCreate(BaseModel):
 class IdeaPatch(BaseModel):
     body: str | None = None
     status: str | None = None
+    project_id: str | None = None
 
 
 def idea_dict(idea: Idea) -> dict:

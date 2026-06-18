@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.routes.items import delete_item
 from app.core.database import Base
-from app.models import EmailMessage, RawItem
+from app.models import EmailMessage, FileAsset, RawItem
 from app.services.gmail_service import GmailService
 from app.services.settings_service import SettingsService
 
@@ -59,6 +59,87 @@ def test_gmail_sync_imports_messages_once(db_session: Session) -> None:
     assert third["skipped_count"] == 0
 
 
+def test_gmail_sync_stores_video_attachments(db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    SettingsService(db_session).set_gmail_query("label:SecondBrain")
+    video_bytes = b"fake video bytes"
+    message = _gmail_message_with_video("gmail-video-1", "Video note", "Please parse this video.", "demo clip.mp4", video_bytes)
+    client = FakeGmailClient([message], attachments={"attachment-1": video_bytes})
+    monkeypatch.setattr(GmailService, "_attachment_directory", lambda self, message_id: tmp_path / "uploads" / message_id)
+
+    result = asyncio.run(GmailService(db_session).sync(auto_process=False, client=client))
+
+    assert result["imported_count"] == 1
+    item = db_session.scalar(select(RawItem).where(RawItem.source_type == "gmail"))
+    assert item is not None
+    assert "Video attachments:" in item.body_text
+    assert "demo clip.mp4 (video/mp4" in item.body_text
+    assert "transcript and frame analysis pending" in item.body_text
+
+    asset = db_session.scalar(select(FileAsset).where(FileAsset.raw_item_id == item.id))
+    assert asset is not None
+    assert asset.filename == "demo_clip.mp4"
+    assert asset.mime_type == "video/mp4"
+    assert asset.size_bytes == len(video_bytes)
+    assert asset.sha256 is not None
+    assert (tmp_path / "uploads" / "gmail-video-1" / "demo_clip.mp4").read_bytes() == video_bytes
+
+
+def test_gmail_sync_strips_trailing_sender_signature(db_session: Session) -> None:
+    SettingsService(db_session).set_gmail_query("label:SecondBrain")
+    body = "https://saharamediterraneancuisine.shop/\n\nRussell G. Moore"
+    message = _gmail_message("gmail-signature-1", "Website needs work", body, from_email="Russell G. Moore <russell@example.com>")
+    client = FakeGmailClient([message])
+
+    result = asyncio.run(GmailService(db_session).sync(auto_process=False, client=client))
+
+    assert result["imported_count"] == 1
+    item = db_session.scalar(select(RawItem).where(RawItem.source_type == "gmail"))
+    assert item is not None
+    assert item.body_text == "https://saharamediterraneancuisine.shop/"
+
+
+def test_gmail_sync_downloads_google_drive_video_links(db_session: Session, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    SettingsService(db_session).set_gmail_query("label:SecondBrain")
+    video_bytes = b"drive video bytes"
+    body = """
+    [image: Video File]
+    <https://drive.google.com/file/d/drive-file-1>
+    v15044gf0000d8oa03nog65geogdhmjg.mp4
+    <https://drive.google.com/file/d/drive-file-1>
+    """
+    message = _gmail_message("gmail-drive-1", "Workflow Imagination", body)
+    client = FakeGmailClient(
+        [message],
+        drive_files={
+            "drive-file-1": {
+                "metadata": {
+                    "id": "drive-file-1",
+                    "name": "v15044gf0000d8oa03nog65geogdhmjg.mp4",
+                    "mimeType": "video/mp4",
+                    "size": str(len(video_bytes)),
+                },
+                "content": video_bytes,
+            }
+        },
+    )
+    monkeypatch.setattr(GmailService, "_drive_attachment_directory", lambda self, file_id: tmp_path / "drive" / file_id)
+
+    result = asyncio.run(GmailService(db_session).sync(auto_process=False, client=client))
+
+    assert result["imported_count"] == 1
+    item = db_session.scalar(select(RawItem).where(RawItem.source_type == "gmail"))
+    assert item is not None
+    assert "Google Drive file drive-file-1" in item.body_text
+    assert "Video parsing status" in item.body_text
+
+    asset = db_session.scalar(select(FileAsset).where(FileAsset.raw_item_id == item.id))
+    assert asset is not None
+    assert asset.filename == "v15044gf0000d8oa03nog65geogdhmjg.mp4"
+    assert asset.mime_type == "video/mp4"
+    assert asset.size_bytes == len(video_bytes)
+    assert (tmp_path / "drive" / "drive-file-1" / "v15044gf0000d8oa03nog65geogdhmjg.mp4").read_bytes() == video_bytes
+
+
 def test_gmail_oauth_flow_does_not_try_to_open_browser(db_session: Session) -> None:
     flow = FakeOAuthFlow()
     GmailService(db_session)._run_oauth_flow(flow)
@@ -68,7 +149,7 @@ def test_gmail_oauth_flow_does_not_try_to_open_browser(db_session: Session) -> N
     assert flow.kwargs["port"] == 8090
 
 
-def _gmail_message(message_id: str, subject: str, body: str) -> dict:
+def _gmail_message(message_id: str, subject: str, body: str, from_email: str = "sender@example.com") -> dict:
     encoded_body = base64.urlsafe_b64encode(body.encode("utf-8")).decode("utf-8")
     return {
         "id": message_id,
@@ -80,7 +161,7 @@ def _gmail_message(message_id: str, subject: str, body: str) -> dict:
             "mimeType": "text/plain",
             "headers": [
                 {"name": "Subject", "value": subject},
-                {"name": "From", "value": "sender@example.com"},
+                {"name": "From", "value": from_email},
                 {"name": "To", "value": "me@example.com"},
             ],
             "body": {"data": encoded_body},
@@ -88,9 +169,41 @@ def _gmail_message(message_id: str, subject: str, body: str) -> dict:
     }
 
 
+def _gmail_message_with_video(message_id: str, subject: str, body: str, filename: str, video_bytes: bytes) -> dict:
+    encoded_body = base64.urlsafe_b64encode(body.encode("utf-8")).decode("utf-8")
+    return {
+        "id": message_id,
+        "threadId": "thread-1",
+        "labelIds": ["Label_SecondBrain"],
+        "internalDate": "1710000000000",
+        "snippet": body,
+        "payload": {
+            "mimeType": "multipart/mixed",
+            "headers": [
+                {"name": "Subject", "value": subject},
+                {"name": "From", "value": "sender@example.com"},
+                {"name": "To", "value": "me@example.com"},
+            ],
+            "parts": [
+                {"mimeType": "text/plain", "body": {"data": encoded_body}},
+                {
+                    "mimeType": "video/mp4",
+                    "filename": filename,
+                    "body": {
+                        "attachmentId": "attachment-1",
+                        "size": len(video_bytes),
+                    },
+                },
+            ],
+        },
+    }
+
+
 class FakeGmailClient:
-    def __init__(self, messages: list[dict]) -> None:
+    def __init__(self, messages: list[dict], attachments: dict[str, bytes] | None = None, drive_files: dict[str, dict] | None = None) -> None:
         self._messages = {message["id"]: message for message in messages}
+        self._attachments = attachments or {}
+        self._drive_files = drive_files or {}
 
     def users(self) -> "FakeGmailClient":
         return self
@@ -103,6 +216,41 @@ class FakeGmailClient:
 
     def get(self, userId: str, id: str, format: str) -> "FakeRequest":
         return FakeRequest(self._messages[id])
+
+    def attachments(self) -> "FakeAttachmentResource":
+        return FakeAttachmentResource(self._attachments)
+
+    def drive(self) -> "FakeDriveClient | None":
+        if not self._drive_files:
+            return None
+        return FakeDriveClient(self._drive_files)
+
+
+class FakeAttachmentResource:
+    def __init__(self, attachments: dict[str, bytes]) -> None:
+        self._attachments = attachments
+
+    def get(self, userId: str, messageId: str, id: str) -> "FakeRequest":
+        return FakeRequest({"data": base64.urlsafe_b64encode(self._attachments[id]).decode("utf-8")})
+
+
+class FakeDriveClient:
+    def __init__(self, drive_files: dict[str, dict]) -> None:
+        self._drive_files = drive_files
+
+    def files(self) -> "FakeDriveFiles":
+        return FakeDriveFiles(self._drive_files)
+
+
+class FakeDriveFiles:
+    def __init__(self, drive_files: dict[str, dict]) -> None:
+        self._drive_files = drive_files
+
+    def get(self, fileId: str, fields: str) -> "FakeRequest":
+        return FakeRequest(self._drive_files[fileId]["metadata"])
+
+    def get_media(self, fileId: str) -> "FakeRequest":
+        return FakeRequest(self._drive_files[fileId]["content"])
 
 
 class FakeRequest:

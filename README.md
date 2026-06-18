@@ -1,6 +1,75 @@
 # Second Brain Inbox
 
-Local-first inbox for turning raw notes into structured memories, tasks, decisions, questions, graph nodes, and grounded answers.
+Second Brain Inbox is a local-first AI inbox for turning messy personal knowledge into structured memory.
+
+It ingests notes, emails, files, and videos; extracts projects, tasks, ideas, decisions, questions, tags, entities, and relationships; keeps source traceability; and lets you review, search, ask, and explore that memory through a graph.
+
+The app is designed as a working local tool, not a hosted SaaS product. When the app opens, it should go directly to the Inbox/Dashboard workflow rather than a marketing landing page. This README is the GitHub-facing product overview.
+
+## Why It Exists
+
+Most useful context starts messy:
+
+- a quick note pasted into an inbox
+- an email with a project request
+- a video or file someone sends you
+- a half-formed idea, task, decision, or open question
+
+Second Brain Inbox turns those inputs into structured records that can be corrected, linked back to their source, searched semantically, queried through Ask, and visualized as a graph.
+
+## What It Can Do Today
+
+- Manual note capture.
+- Gmail sync for labeled/query-matched emails.
+- Google Drive video-link download from Gmail messages.
+- Video audio extraction, local transcription, and media artifact storage.
+- Local LLM extraction through Ollama.
+- JSON validation and repair for model output.
+- Editable memories, tasks, ideas, decisions, open questions, and projects.
+- Postgres persistence with Alembic migrations.
+- pgvector-ready database stack.
+- Semantic Ask interface grounded in stored memory.
+- React Flow graph with search, node detail drawer, source links, and neighbor highlighting.
+- Docker Compose dev stack for Postgres, backend, frontend, and nginx.
+
+## Local-First Principles
+
+- Data is stored locally in Postgres and the `data/` directory.
+- LLM and embedding calls default to local Ollama models.
+- Gmail integration imports and processes messages locally.
+- No email is auto-sent.
+- Source traceability is preserved from extracted records back to raw items.
+- The app favors review and correction over blindly trusting extraction.
+
+## Screenshots
+
+Screenshots should live under `assets/screenshots/` when added:
+
+- Inbox and connector dashboard
+- Item detail and extraction review
+- Ask interface
+- Graph view
+- Project detail page
+
+## Quick Start
+
+The normal local setup is:
+
+```bash
+git clone https://github.com/mooregit/second_brain.git
+cd second_brain
+cp .env.example .env
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Then open:
+
+- App: http://secondbrain
+- Backend health: http://secondbrain/health
+
+See [Local Setup By Platform](#local-setup-by-platform) for Linux, macOS, and Windows details.
 
 ## Stack
 
@@ -8,6 +77,281 @@ Local-first inbox for turning raw notes into structured memories, tasks, decisio
 - Frontend: React, Vite, Tailwind, React Flow
 - Dev runtime: Docker Compose with Postgres + pgvector, backend, and frontend services
 - Default local models: `qwen3:8b` for extraction/answers and `nomic-embed-text` for embeddings
+
+## Ollama Models
+
+Second Brain Inbox defaults to local Ollama models for extraction, answers, and embeddings.
+
+Install Ollama from the official site:
+
+- https://ollama.com/download
+
+Default models:
+
+- `qwen3:8b`: extraction, summarization, repair, and Ask responses.
+- `nomic-embed-text`: embeddings for semantic search.
+
+Pull the default models:
+
+```bash
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+Optional fallback or larger local models:
+
+```bash
+ollama pull llama3.1:8b
+ollama pull qwen3:14b
+```
+
+Model recommendations:
+
+- Start with `qwen3:8b` for extraction and Ask. It is a good default balance of quality and local runtime.
+- Use `llama3.1:8b` as a fallback if `qwen3:8b` is unavailable or behaves poorly for a specific workload.
+- Use `qwen3:14b` if your machine has enough RAM/VRAM and you want better reasoning/extraction quality at the cost of speed.
+- Keep `nomic-embed-text` for embeddings unless you intentionally migrate embedding storage and retrieval to a different embedding model.
+- For video transcription, start with `MEDIA_TRANSCRIPTION_MODEL=base`; use a larger Whisper model later if transcript quality is more important than speed.
+
+The app reads model settings from `.env`:
+
+```env
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_EXTRACTION_MODEL=qwen3:8b
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+```
+
+When running with Docker Compose, Ollama runs on the host machine and the backend container reaches it through:
+
+```text
+http://host.docker.internal:11434
+```
+
+On Linux, Docker may need Ollama to listen beyond `127.0.0.1`. If extraction fails with `All connection attempts failed`, run:
+
+```bash
+sudo systemctl edit ollama
+```
+
+Add:
+
+```ini
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+```
+
+Then restart Ollama:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
+```
+
+Verify model availability:
+
+```bash
+ollama list
+./scripts/check-ollama-docker.sh
+```
+
+## Project Docs
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## Local Setup By Platform
+
+The recommended local setup is Docker Compose for the app/database plus Ollama running on the host machine. Docker starts Postgres, applies Alembic migrations, starts the FastAPI backend, starts the Vite frontend, and exposes the app through nginx at `http://secondbrain`.
+
+### Linux
+
+1. Install Docker, Docker Compose, Git, and curl.
+
+   Ubuntu/Debian:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y git docker.io docker-compose-v2 curl
+   sudo usermod -aG docker "$USER"
+   newgrp docker
+   docker --version
+   docker compose version
+   ```
+
+2. Install Ollama from the official installer, then pull the local models.
+
+   ```bash
+   ollama pull qwen3:8b
+   ollama pull nomic-embed-text
+   ```
+
+3. Allow Docker containers to reach host Ollama.
+
+   If Ollama is managed by systemd:
+
+   ```bash
+   sudo systemctl edit ollama
+   ```
+
+   Add:
+
+   ```ini
+   [Service]
+   Environment="OLLAMA_HOST=0.0.0.0:11434"
+   ```
+
+   Then restart:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart ollama
+   ```
+
+4. Clone and configure the app.
+
+   ```bash
+   git clone https://github.com/mooregit/second_brain.git
+   cd second_brain
+   cp .env.example .env
+   ./scripts/setup-local-hostname.sh
+   ```
+
+5. Start the app.
+
+   ```bash
+   docker compose -f docker-compose.dev.yml up --build
+   ```
+
+6. Open:
+
+   - App: http://secondbrain
+   - Backend health: http://secondbrain/health
+   - Frontend direct port: http://localhost:5174
+   - Backend direct port: http://localhost:8001/health
+
+### macOS
+
+1. Install prerequisites.
+
+   - Install Docker Desktop for Mac and start it.
+   - Install Ollama for macOS and start it.
+   - Install Git. If you use Homebrew:
+
+   ```bash
+   brew install git
+   ```
+
+2. Pull the local models.
+
+   ```bash
+   ollama pull qwen3:8b
+   ollama pull nomic-embed-text
+   ```
+
+3. Clone and configure the app.
+
+   ```bash
+   git clone https://github.com/mooregit/second_brain.git
+   cd second_brain
+   cp .env.example .env
+   ./scripts/setup-local-hostname.sh
+   ```
+
+   The hostname script adds this entry to `/etc/hosts` and will ask for your password:
+
+   ```text
+   127.0.0.1 secondbrain
+   ```
+
+4. Start the app.
+
+   ```bash
+   docker compose -f docker-compose.dev.yml up --build
+   ```
+
+5. Open:
+
+   - App: http://secondbrain
+   - Backend health: http://secondbrain/health
+
+### Windows
+
+Windows is easiest with Docker Desktop using the WSL 2 backend.
+
+1. Install prerequisites.
+
+   - Install Docker Desktop for Windows.
+   - Enable WSL 2 when Docker Desktop prompts for it.
+   - Install Git for Windows.
+   - Install Ollama for Windows and start it.
+
+2. Pull the local models in PowerShell.
+
+   ```powershell
+   ollama pull qwen3:8b
+   ollama pull nomic-embed-text
+   ```
+
+3. Clone and configure the app in PowerShell.
+
+   ```powershell
+   git clone https://github.com/mooregit/second_brain.git
+   cd second_brain
+   copy .env.example .env
+   ```
+
+4. Add the local hostname.
+
+   Open PowerShell as Administrator and run:
+
+   ```powershell
+   Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 secondbrain"
+   ```
+
+5. Start the app.
+
+   ```powershell
+   docker compose -f docker-compose.dev.yml up --build
+   ```
+
+6. Open:
+
+   - App: http://secondbrain
+   - Backend health: http://secondbrain/health
+
+If port `80` is already in use on any platform, start with another web port:
+
+Linux/macOS:
+
+```bash
+WEB_PORT=8080 docker compose -f docker-compose.dev.yml up --build
+```
+
+Windows PowerShell:
+
+```powershell
+$env:WEB_PORT=8080
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Then open `http://secondbrain:8080`.
+
+### Verify A Fresh Install
+
+After the app starts, verify the database, migrations, and Ollama connection:
+
+```bash
+docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
+docker compose -f docker-compose.dev.yml exec backend alembic current
+./scripts/check-ollama-docker.sh
+```
+
+On Windows, run the Docker commands in PowerShell. The `check-ollama-docker.sh` helper is easiest from Git Bash or WSL. If you do not use Git Bash/WSL, check Ollama directly with:
+
+```powershell
+curl http://localhost:11434/api/tags
+```
 
 ## Install From Scratch
 
@@ -314,19 +658,44 @@ Gmail import is manual-first and label/query scoped. The recommended Gmail filte
 label:SecondBrain
 ```
 
+### Gmail Connector Setup
+
+This is the setup flow that worked for the local Docker stack.
+
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Select an existing project or create a new one.
+3. Enable the Gmail API for that project.
+4. Enable the Google Drive API for that project.
+5. Open the OAuth consent screen and finish the basic app info.
+6. Add these OAuth scopes under data access:
+   - `https://www.googleapis.com/auth/gmail.readonly`
+   - `https://www.googleapis.com/auth/drive.readonly`
+7. Add your Gmail account under `Test users`.
+   - If Google says `Ineligible accounts not added`, the address is either not a Google Account or it was entered into the wrong project.
+   - Use the exact Google account you plan to sign in with.
+8. Create an OAuth client.
+   - Application type: `Desktop app`
+   - Download the JSON file Google gives you.
+9. Save that JSON file at `data/gmail/credentials.json`.
+10. Make sure the local token file can be written on first login:
+   - `data/gmail/token.json` will be created automatically after authorization.
+11. Start the app with Docker Compose.
+12. From the Inbox page, click `Sync Gmail`.
+13. The backend will print an authorization URL in the container logs.
+14. Open that URL in your browser on the host machine, approve access, and let Google redirect to:
+
+```text
+http://localhost:8090/
+```
+
+The backend does not try to launch a browser from inside Docker.
+That is intentional, because the container usually does not have a GUI browser available.
+
 Local OAuth files live under `data/gmail/` and are ignored by git:
 
 ```text
 data/gmail/credentials.json
 data/gmail/token.json
-```
-
-Create OAuth desktop credentials in Google Cloud, download the JSON file, and save it as `data/gmail/credentials.json`. The first sync starts a local OAuth flow and writes `token.json`.
-
-In Docker, the backend cannot open a browser. It prints an authorization URL in the backend logs. Open that URL on the host machine, approve access, and Google will redirect to:
-
-```text
-http://localhost:8090/
 ```
 
 The compose stack exposes this callback port by default:
@@ -335,12 +704,17 @@ The compose stack exposes this callback port by default:
 8090:8090
 ```
 
+If you need to change the callback port, update `GMAIL_OAUTH_PORT` in `.env` and expose the same port in `docker-compose.dev.yml`.
+
 Relevant settings can be edited in the app Settings page:
 
 - Gmail enabled
 - Gmail label
 - Gmail query
 - Auto-process imported emails
+- Gmail credentials path
+- Gmail token path
+- Gmail OAuth port
 
 Manual sync is available from the Inbox page with `Sync Gmail`, or through the API:
 
@@ -351,6 +725,65 @@ curl -X POST http://secondbrain/api/gmail/sync \
 ```
 
 Imported messages are stored as `RawItem` records with `source_type="gmail"` and linked `EmailMessage` metadata. Duplicate Gmail message IDs are skipped. Imported emails can auto-process through the same extraction pipeline; generated replies are still draft-only and deferred.
+
+### Gmail Video Attachments
+
+When Gmail sync imports an email with `video/*` attachments, the backend stores the original video under `data/uploads/gmail/` and creates a `FileAsset` row. Processing the item runs media analysis before extraction:
+
+- `ffmpeg` extracts a WAV audio artifact.
+- `ffmpeg` samples a representative video frame.
+- By default, `faster-whisper` transcribes the extracted audio locally.
+- If `MEDIA_TRANSCRIPTION_BACKEND=command`, the backend runs `MEDIA_TRANSCRIPTION_COMMAND` and stores stdout or a generated `.txt` file as the transcript.
+- The email body, attachment names, transcript, and media artifact status are included in the extraction prompt.
+
+If the Gmail message contains a Google Drive video link like `https://drive.google.com/file/d/...`, sync uses the Drive API to download that video into `data/uploads/drive/` and then follows the same media analysis path.
+
+If you added Drive access after already authorizing Gmail, delete `data/gmail/token.json` and run `Sync Gmail` again so Google grants the new Drive readonly scope.
+
+Generated media artifacts are stored under:
+
+```text
+data/media/
+```
+
+The backend Docker image includes `ffmpeg`, `libgomp1`, and the Python `faster-whisper` package. The default transcription settings are CPU-friendly:
+
+```env
+MEDIA_ARTIFACTS_FOLDER=../data/media
+MEDIA_TRANSCRIPTION_BACKEND=faster-whisper
+MEDIA_TRANSCRIPTION_MODEL=base
+MEDIA_TRANSCRIPTION_DEVICE=cpu
+MEDIA_TRANSCRIPTION_COMPUTE_TYPE=int8
+```
+
+The first transcription run may download model files inside the backend container.
+
+Command-based transcription is still available as an escape hatch. Set `MEDIA_TRANSCRIPTION_BACKEND=command`, then provide a command. The command can use these placeholders:
+
+```text
+{audio_path}
+{video_path}
+{output_dir}
+```
+
+Example `.env` shape:
+
+```env
+MEDIA_ARTIFACTS_FOLDER=../data/media
+MEDIA_TRANSCRIPTION_BACKEND=command
+MEDIA_TRANSCRIPTION_COMMAND=whisper {audio_path} --model base --output_format txt --output_dir {output_dir}
+```
+
+`MEDIA_TRANSCRIPTION_COMMAND` runs inside the backend container. If the command uses `whisper` or another local transcription tool, that tool must be installed in the backend image or otherwise available inside the container.
+
+For now, the app keeps original videos after processing so source traceability and future reprocessing are preserved.
+
+### Gmail Troubleshooting
+
+- If sync fails with `could not locate runnable browser`, retry after updating to the current Docker-backed flow. The backend should print the OAuth URL instead of trying to open a browser itself.
+- If sync fails with `All connection attempts failed`, check that the host Ollama setup is unrelated and that the Gmail OAuth callback port is exposed in Compose.
+- If Google rejects the login as a test user, go back to the OAuth consent screen and add the account under `Test users`.
+- If the callback port is busy, set a different `GMAIL_OAUTH_PORT`, update the Compose port mapping, and restart the stack.
 
 ## Troubleshooting
 

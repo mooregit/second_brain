@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models import AskRun, EmailMessage, Embedding, FileAsset, Memory, ProcessingRun, RawItem
+from app.models import AskRun, EmailMessage, Embedding, FileAsset, MediaArtifact, Memory, ProcessingRun, RawItem
 from app.schemas.raw_item import ManualItemCreate, RawItemOut
 from app.services.extraction_service import ExtractionService
 from app.services.file_service import FileService
@@ -84,6 +84,8 @@ def delete_item(item_id: str, db: Session = Depends(get_db)) -> dict:
             db.delete(embedding)
     for email_message in db.scalars(select(EmailMessage).where(EmailMessage.raw_item_id == item_id)).all():
         db.delete(email_message)
+    for media_artifact in db.scalars(select(MediaArtifact).where(MediaArtifact.raw_item_id == item_id)).all():
+        db.delete(media_artifact)
     for file_asset in db.scalars(select(FileAsset).where(FileAsset.raw_item_id == item_id)).all():
         db.delete(file_asset)
     for ask_run in db.scalars(select(AskRun).where(AskRun.saved_raw_item_id == item_id)).all():
@@ -107,9 +109,38 @@ def get_item(item_id: str, db: Session = Depends(get_db)) -> dict:
     latest_run = db.scalars(
         select(ProcessingRun).where(ProcessingRun.raw_item_id == item_id).order_by(ProcessingRun.started_at.desc())
     ).first()
+    file_assets = db.scalars(select(FileAsset).where(FileAsset.raw_item_id == item_id).order_by(FileAsset.filename)).all()
+    artifacts_by_file_asset: dict[str, list[MediaArtifact]] = {}
+    for artifact in db.scalars(select(MediaArtifact).where(MediaArtifact.raw_item_id == item_id).order_by(MediaArtifact.created_at.desc())).all():
+        artifacts_by_file_asset.setdefault(artifact.file_asset_id, []).append(artifact)
     return {
         "item": RawItemOut.model_validate(item).model_dump(mode="json"),
         "latest_processing_run": processing_run_dict(latest_run) if latest_run else None,
+        "file_assets": [
+            {
+                "id": asset.id,
+                "filename": asset.filename,
+                "stored_path": asset.stored_path,
+                "mime_type": asset.mime_type,
+                "size_bytes": asset.size_bytes,
+                "sha256": asset.sha256,
+                "media_artifacts": [
+                    {
+                        "id": artifact.id,
+                        "artifact_type": artifact.artifact_type,
+                        "status": artifact.status,
+                        "text_content": artifact.text_content,
+                        "stored_path": artifact.stored_path,
+                        "metadata_json": artifact.metadata_json,
+                        "error": artifact.error,
+                        "created_at": artifact.created_at.isoformat(),
+                        "updated_at": artifact.updated_at.isoformat(),
+                    }
+                    for artifact in artifacts_by_file_asset.get(asset.id, [])
+                ],
+            }
+            for asset in file_assets
+        ],
         "memories": [
             {
                 "id": memory.id,

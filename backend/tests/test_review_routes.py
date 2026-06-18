@@ -6,10 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.routes.ideas import IdeaCreate, IdeaPatch, create_idea, patch_idea
+from app.api.routes.memories import delete_memory
 from app.api.routes.questions import QuestionCreate, QuestionPatch, create_question, patch_question
 from app.api.routes.tasks import TaskCreate, TaskPatch, create_task, patch_task
 from app.core.database import Base
-from app.models import Memory, RawItem
+from app.models import Embedding, Idea, Memory, RawItem, Task
 from app.services.embedding_service import EmbeddingService
 
 
@@ -73,3 +74,40 @@ def test_create_and_patch_review_children_preserves_source_traceability(db_sessi
 
     patched_question = asyncio.run(patch_question(question["id"], QuestionPatch(status="answered"), db_session))
     assert patched_question["status"] == "answered"
+
+
+def test_delete_memory_removes_children_and_embeddings_but_keeps_source(db_session: Session) -> None:
+    raw_item = RawItem(source_type="manual", title="Review source", body_text="Source note")
+    db_session.add(raw_item)
+    db_session.flush()
+    memory = Memory(
+        raw_item_id=raw_item.id,
+        memory_type="note",
+        summary="Review summary",
+        confidence=0.5,
+        validated_json={"projects": []},
+        raw_llm_output="{}",
+    )
+    db_session.add(memory)
+    db_session.flush()
+    task = Task(memory_id=memory.id, title="Task", source_raw_item_id=raw_item.id)
+    idea = Idea(memory_id=memory.id, body="Idea", source_raw_item_id=raw_item.id)
+    db_session.add_all([task, idea])
+    db_session.flush()
+    db_session.add_all(
+        [
+            Embedding(owner_type="memory", owner_id=memory.id, model="test", vector_json=[1], text_hash="memory"),
+            Embedding(owner_type="task", owner_id=task.id, model="test", vector_json=[1], text_hash="task"),
+            Embedding(owner_type="idea", owner_id=idea.id, model="test", vector_json=[1], text_hash="idea"),
+        ]
+    )
+    db_session.commit()
+
+    result = delete_memory(memory.id, db_session)
+
+    assert result == {"status": "deleted", "id": memory.id}
+    assert db_session.get(RawItem, raw_item.id) is not None
+    assert db_session.get(Memory, memory.id) is None
+    assert db_session.get(Task, task.id) is None
+    assert db_session.get(Idea, idea.id) is None
+    assert db_session.query(Embedding).count() == 0

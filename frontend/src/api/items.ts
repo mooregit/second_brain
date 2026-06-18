@@ -40,9 +40,32 @@ export type ProcessingRun = {
   parsed_json: unknown;
 };
 
+export type MediaArtifact = {
+  id: string;
+  artifact_type: string;
+  status: string;
+  text_content: string | null;
+  stored_path: string | null;
+  metadata_json: Record<string, unknown> | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FileAsset = {
+  id: string;
+  filename: string;
+  stored_path: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  sha256: string | null;
+  media_artifacts: MediaArtifact[];
+};
+
 export type ItemDetailResponse = {
   item: RawItem;
   latest_processing_run: ProcessingRun | null;
+  file_assets: FileAsset[];
   memories: Memory[];
 };
 
@@ -56,6 +79,10 @@ export type ScanInboxResponse = {
 
 export function listItems() {
   return api<RawItem[]>('/items');
+}
+
+export function deleteItem(id: string) {
+  return api<{ status: string; id: string }>(`/items/${id}`, { method: 'DELETE' });
 }
 
 export function createManualItem(body_text: string, title?: string) {

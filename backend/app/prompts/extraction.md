@@ -5,6 +5,9 @@ Rules:
 - Use null for unknown optional values.
 - Use ISO date strings only when dates are explicit or clearly inferable from context.
 - Include confidence values from 0 to 1.
+- For emails, treat sender names, signatures, and sign-offs as source metadata unless they are explicitly part of the requested work.
+- Do not turn a sender signature into a person, tag, entity, project, or relationship.
+- If an email only contains a subject and a URL, use the subject as the main memory and the URL as a resource/entity; do not infer extra people from the signature.
 
 Schema:
 {

@@ -1,8 +1,35 @@
-import { useQuery } from '@tanstack/react-query';
-import { listProjects } from '../api/views';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { Project, deleteProject, listProjects, patchProject } from '../api/views';
 
 export default function Projects() {
+  const queryClient = useQueryClient();
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState('');
   const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects });
+  const deleteMutation = useMutation({
+    mutationFn: deleteProject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['item-detail'] });
+    }
+  });
+  const patchMutation = useMutation({
+    mutationFn: ({ projectId, name }: { projectId: string; name: string }) => patchProject(projectId, { name }),
+    onSuccess: () => {
+      setEditingProjectId(null);
+      setNameDraft('');
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
+    }
+  });
+
+  function startEdit(project: Project) {
+    setEditingProjectId(project.id);
+    setNameDraft(project.name);
+  }
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
@@ -10,7 +37,49 @@ export default function Projects() {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {projects.data?.map((project) => (
           <article key={project.id} className="rounded-md border border-slate-200 p-3">
-            <h2 className="font-semibold">{project.name}</h2>
+            <div className="flex items-start justify-between gap-3">
+              {editingProjectId === project.id ? (
+                <input className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm" value={nameDraft} onChange={(event) => setNameDraft(event.target.value)} />
+              ) : (
+                <h2 className="font-semibold">{project.name}</h2>
+              )}
+              <div className="flex shrink-0 items-center gap-1">
+                {editingProjectId === project.id ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => patchMutation.mutate({ projectId: project.id, name: nameDraft.trim() })}
+                      className="rounded-md border border-emerald-200 p-1.5 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                      disabled={patchMutation.isPending || !nameDraft.trim()}
+                      title="Save project"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button type="button" onClick={() => setEditingProjectId(null)} className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50" title="Cancel edit">
+                      <X size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => startEdit(project)} className="rounded-md border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50" title="Rename project">
+                    <Pencil size={14} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Delete project "${project.name}"? This detaches related records.`)) {
+                      deleteMutation.mutate(project.id);
+                    }
+                  }}
+                  className="rounded-md border border-rose-200 p-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                  disabled={deleteMutation.isPending}
+                  aria-label={`Delete ${project.name}`}
+                  title="Delete project"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
             <p className="mt-1 text-sm text-slate-500">{project.description || 'No description yet.'}</p>
           </article>
         ))}

@@ -19,6 +19,12 @@ export type Settings = {
 };
 
 export const listProjects = () => api<Project[]>('/projects');
+export const patchProject = (projectId: string, payload: { name?: string; description?: string | null }) =>
+  api<Project>(`/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+export const deleteProject = (projectId: string) => api<{ status: string; id: string }>(`/projects/${projectId}`, { method: 'DELETE' });
 export const listTasks = (showArchived = false) => api<Task[]>(`/tasks?show_archived=${showArchived}`);
 export const listDecisions = () => api<Decision[]>('/decisions');
 export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
