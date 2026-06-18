@@ -187,6 +187,10 @@ def get_item(item_id: str, db: Session = Depends(get_db)) -> dict:
                         "id": question.id,
                         "question": question.question,
                         "status": question.status,
+                        "answer_text": question.answer_text,
+                        "answer_confidence": question.answer_confidence,
+                        "answer_sources_json": question.answer_sources_json or [],
+                        "answered_at": question.answered_at.isoformat() if question.answered_at else None,
                         "source_raw_item_id": question.source_raw_item_id,
                     }
                     for question in memory.open_questions

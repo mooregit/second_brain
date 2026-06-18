@@ -4,7 +4,17 @@ export type Project = { id: string; name: string; description: string | null; cr
 export type Task = { id: string; project_id: string | null; title: string; description: string | null; priority: string | null; status: string; source_raw_item_id: string };
 export type Idea = { id: string; project_id: string | null; body: string; status: string; source_raw_item_id: string };
 export type Decision = { id: string; project_id: string | null; title: string; rationale: string | null; confidence: number; source_raw_item_id: string };
-export type OpenQuestion = { id: string; project_id: string | null; question: string; status: string; source_raw_item_id: string };
+export type OpenQuestion = {
+  id: string;
+  project_id: string | null;
+  question: string;
+  status: string;
+  answer_text: string | null;
+  answer_confidence: number | null;
+  answer_sources_json: { raw_item_id?: string | null; title?: string; owner_type?: string; owner_id?: string; score?: number }[];
+  answered_at: string | null;
+  source_raw_item_id: string;
+};
 export type Settings = {
   ollama_base_url: string;
   ollama_extraction_model: string;

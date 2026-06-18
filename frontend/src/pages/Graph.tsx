@@ -391,7 +391,7 @@ function GraphDetailDrawer({
   const editable = isEditableNode(node);
   const rawItemId = typeof node.metadata.raw_item_id === 'string' ? node.metadata.raw_item_id : null;
   const tags = Array.isArray(node.metadata.tags) ? node.metadata.tags.filter((tag): tag is string => typeof tag === 'string') : [];
-  const body = stringMetadata(node, 'body') ?? stringMetadata(node, 'description') ?? stringMetadata(node, 'rationale');
+  const body = stringMetadata(node, 'body') ?? stringMetadata(node, 'description') ?? stringMetadata(node, 'rationale') ?? stringMetadata(node, 'answer');
   const status = stringMetadata(node, 'status');
   const canArchive = ['task', 'idea', 'question'].includes(node.type) && status !== 'archived';
   const canDelete = ['project', 'task', 'idea', 'decision', 'question', 'tag', 'entity', 'person'].includes(node.type);
@@ -411,6 +411,8 @@ function GraphDetailDrawer({
         <DetailRow label="Priority" value={stringMetadata(node, 'priority')} />
         <DetailRow label="Due" value={stringMetadata(node, 'due_date')} />
         <DetailRow label="Confidence" value={numberMetadata(node, 'confidence')} />
+        <DetailRow label="Answer" value={numberMetadata(node, 'answer_confidence')} />
+        <DetailRow label="Answered" value={stringMetadata(node, 'answered_at')} />
         {body && (
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Details</div>

@@ -158,6 +158,9 @@ class GraphService:
                     project_name_by_id=project_name_by_id,
                     source_title_by_id=source_title_by_id,
                     tags_by_memory_id=tags_by_memory_id,
+                    answer=question.answer_text,
+                    answer_confidence=question.answer_confidence,
+                    answered_at=question.answered_at.isoformat() if question.answered_at else None,
                 ),
             )
             self._add_source_edge(nodes, edges, question.source_raw_item_id, node_id, project_nodes, project_node_by_label)

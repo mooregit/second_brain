@@ -21,7 +21,16 @@ export type Memory = {
   tasks: { id: string; title: string; description: string | null; priority: string | null; status: string; source_raw_item_id: string }[];
   ideas: { id: string; body: string; status: string; source_raw_item_id: string }[];
   decisions: { id: string; title: string; rationale: string | null; confidence: number; source_raw_item_id: string }[];
-  open_questions: { id: string; question: string; status: string; source_raw_item_id: string }[];
+  open_questions: {
+    id: string;
+    question: string;
+    status: string;
+    answer_text: string | null;
+    answer_confidence: number | null;
+    answer_sources_json: unknown[];
+    answered_at: string | null;
+    source_raw_item_id: string;
+  }[];
   created_at: string;
 };
 

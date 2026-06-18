@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.api.routes.decisions import DecisionCreate, create_decision, delete_decision
 from app.api.routes.ideas import IdeaCreate, IdeaPatch, create_idea, delete_idea, patch_idea
 from app.api.routes.memories import delete_memory
-from app.api.routes.questions import QuestionCreate, QuestionPatch, create_question, delete_question, patch_question
+from app.api.routes.questions import QuestionAnswer, QuestionCreate, QuestionPatch, answer_question, create_question, delete_question, patch_question
 from app.api.routes.tasks import TaskCreate, TaskPatch, create_task, delete_task, patch_task
 from app.core.database import Base
 from app.models import Embedding, Idea, Memory, RawItem, Task
@@ -75,6 +75,43 @@ def test_create_and_patch_review_children_preserves_source_traceability(db_sessi
 
     patched_question = asyncio.run(patch_question(question["id"], QuestionPatch(status="answered"), db_session))
     assert patched_question["status"] == "answered"
+
+
+def test_answer_question_saves_answer_metadata_and_traceability(db_session: Session) -> None:
+    raw_item = RawItem(source_type="manual", title="Question source", body_text="Source note")
+    db_session.add(raw_item)
+    db_session.flush()
+    memory = Memory(
+        raw_item_id=raw_item.id,
+        memory_type="note",
+        summary="Question summary",
+        confidence=0.5,
+        validated_json={"projects": []},
+        raw_llm_output="{}",
+    )
+    db_session.add(memory)
+    db_session.commit()
+
+    question = asyncio.run(create_question(QuestionCreate(memory_id=memory.id, question="What should happen next?"), db_session))
+    answer = asyncio.run(
+        answer_question(
+            question["id"],
+            QuestionAnswer(
+                answer_text="Use the stored source to decide the next action.",
+                answer_confidence=0.8,
+                answer_sources_json=[{"raw_item_id": raw_item.id, "title": raw_item.title, "score": 0.91}],
+            ),
+            db_session,
+        )
+    )
+
+    assert answer["status"] == "answered"
+    assert answer["answer_text"] == "Use the stored source to decide the next action."
+    assert answer["answer_confidence"] == 0.8
+    assert answer["answer_sources_json"] == [{"raw_item_id": raw_item.id, "title": raw_item.title, "score": 0.91}]
+    assert answer["answered_at"] is not None
+    assert answer["memory_id"] == memory.id
+    assert answer["source_raw_item_id"] == raw_item.id
 
 
 def test_delete_memory_removes_children_and_embeddings_but_keeps_source(db_session: Session) -> None:

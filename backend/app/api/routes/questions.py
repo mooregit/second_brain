@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models import Embedding, Memory, OpenQuestion, Project
+from app.schemas.ask import AskResponse
+from app.services.ask_service import AskService
 from app.services.embedding_service import EmbeddingService
 
 router = APIRouter(prefix="/open-questions", tags=["open-questions"])
@@ -24,6 +27,15 @@ class QuestionPatch(BaseModel):
     question: str | None = None
     status: str | None = None
     project_id: str | None = None
+    answer_text: str | None = None
+    answer_confidence: float | None = Field(default=None, ge=0, le=1)
+    answer_sources_json: list[dict] | None = None
+
+
+class QuestionAnswer(BaseModel):
+    answer_text: str = Field(min_length=1)
+    answer_confidence: float | None = Field(default=None, ge=0, le=1)
+    answer_sources_json: list[dict] = Field(default_factory=list)
 
 
 def question_dict(question: OpenQuestion) -> dict:
@@ -33,6 +45,10 @@ def question_dict(question: OpenQuestion) -> dict:
         "project_id": question.project_id,
         "question": question.question,
         "status": question.status,
+        "answer_text": question.answer_text,
+        "answer_confidence": question.answer_confidence,
+        "answer_sources_json": question.answer_sources_json or [],
+        "answered_at": question.answered_at.isoformat() if question.answered_at else None,
         "source_raw_item_id": question.source_raw_item_id,
     }
 
@@ -74,6 +90,36 @@ async def patch_question(question_id: str, payload: QuestionPatch, db: Session =
         raise HTTPException(status_code=404, detail="Open question not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(question, field, value)
+    if payload.answer_text is not None and payload.answer_text.strip():
+        question.status = "answered"
+        question.answered_at = datetime.utcnow()
+    db.commit()
+    db.refresh(question)
+    await _embed_question(question, db)
+    return question_dict(question)
+
+
+@router.post("/{question_id}/ask", response_model=AskResponse)
+async def ask_open_question(question_id: str, db: Session = Depends(get_db)) -> AskResponse:
+    question = db.get(OpenQuestion, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Open question not found")
+    try:
+        return await AskService(db).ask(question.question)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/{question_id}/answer")
+async def answer_question(question_id: str, payload: QuestionAnswer, db: Session = Depends(get_db)) -> dict:
+    question = db.get(OpenQuestion, question_id)
+    if not question:
+        raise HTTPException(status_code=404, detail="Open question not found")
+    question.answer_text = payload.answer_text.strip()
+    question.answer_confidence = payload.answer_confidence
+    question.answer_sources_json = payload.answer_sources_json
+    question.status = "answered"
+    question.answered_at = datetime.utcnow()
     db.commit()
     db.refresh(question)
     await _embed_question(question, db)
@@ -105,6 +151,7 @@ def _project_id_from_memory(memory: Memory, db: Session) -> str | None:
 
 async def _embed_question(question: OpenQuestion, db: Session) -> None:
     try:
-        await EmbeddingService(db).embed_owner("open_question", question.id, question.question)
+        text = question.question if not question.answer_text else f"{question.question}\nAnswer: {question.answer_text}"
+        await EmbeddingService(db).embed_owner("open_question", question.id, text)
     except Exception as exc:
         logger.warning("Open question embedding refresh failed for %s: %s", question.id, exc)

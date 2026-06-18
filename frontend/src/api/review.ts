@@ -1,5 +1,7 @@
 import { api } from './client';
+import type { AskResponse } from './ask';
 import type { Memory } from './items';
+import type { OpenQuestion } from './views';
 
 export type TaskPatch = {
   title?: string;
@@ -47,6 +49,9 @@ export type QuestionPatch = {
   question?: string;
   status?: string;
   project_id?: string | null;
+  answer_text?: string | null;
+  answer_confidence?: number | null;
+  answer_sources_json?: Record<string, unknown>[];
 };
 
 export type QuestionCreate = {
@@ -125,4 +130,15 @@ export function patchQuestion(id: string, payload: QuestionPatch) {
 
 export function deleteQuestion(id: string) {
   return api<{ status: string; id: string }>(`/open-questions/${id}`, { method: 'DELETE' });
+}
+
+export function askQuestionRecord(id: string) {
+  return api<AskResponse>(`/open-questions/${id}/ask`, { method: 'POST' });
+}
+
+export function answerQuestion(id: string, payload: { answer_text: string; answer_confidence?: number | null; answer_sources_json?: Record<string, unknown>[] }) {
+  return api<OpenQuestion>(`/open-questions/${id}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ answer_sources_json: [], ...payload })
+  });
 }
