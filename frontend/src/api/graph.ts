@@ -48,3 +48,15 @@ export function createGraphRelationship(payload: {
     body: JSON.stringify(payload)
   });
 }
+
+export type GraphDeduplicateResult = {
+  status: string;
+  projects_merged: number;
+  tags_merged: number;
+  relationship_labels_normalized: number;
+  relationships_removed: number;
+};
+
+export function deduplicateGraph() {
+  return api<GraphDeduplicateResult>('/graph/deduplicate', { method: 'POST' });
+}

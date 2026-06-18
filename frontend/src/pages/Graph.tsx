@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Archive, ExternalLink, Loader2, Save, Search, Trash2, X } from 'lucide-react';
-import { createGraphRelationship, deleteGraphLabel, deleteGraphTag, GraphNode, getGraph, renameGraphLabel, renameGraphTag } from '../api/graph';
+import { Archive, GitMerge, ExternalLink, Loader2, Save, Search, Trash2, X } from 'lucide-react';
+import { createGraphRelationship, deduplicateGraph, deleteGraphLabel, deleteGraphTag, GraphNode, getGraph, renameGraphLabel, renameGraphTag } from '../api/graph';
 import { deleteDecision, deleteIdea, deleteQuestion, deleteTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
 import { deleteProject, patchProject } from '../api/views';
 import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
@@ -31,6 +31,7 @@ export default function Graph() {
   const [relationshipTargetId, setRelationshipTargetId] = useState('');
   const [manualRelationshipType, setManualRelationshipType] = useState('related_to');
   const [manualRelationshipDirection, setManualRelationshipDirection] = useState<'out' | 'in'>('out');
+  const [dedupeMessage, setDedupeMessage] = useState('');
   const graph = useQuery({ queryKey: ['graph', showArchived], queryFn: () => getGraph(showArchived) });
   const selectedNode = graph.data?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const editMutation = useMutation({
@@ -51,6 +52,17 @@ export default function Graph() {
       setRelationshipTargetId('');
       setManualRelationshipType('related_to');
       setManualRelationshipDirection('out');
+      invalidateGraphData(queryClient);
+    }
+  });
+  const deduplicateMutation = useMutation({
+    mutationFn: deduplicateGraph,
+    onSuccess: (result) => {
+      setDedupeMessage(
+        `Merged ${result.projects_merged} projects, ${result.tags_merged} tags; normalized ${result.relationship_labels_normalized} labels; removed ${result.relationships_removed} duplicate relationships.`
+      );
+      setSelectedNodeId(null);
+      setLabelDraft('');
       invalidateGraphData(queryClient);
     }
   });
@@ -151,8 +163,23 @@ export default function Graph() {
             Edge labels
           </label>
           <div className="text-sm text-slate-500">{graph.data?.nodes.length ?? 0} nodes</div>
+          <button
+            type="button"
+            onClick={() => deduplicateMutation.mutate()}
+            disabled={deduplicateMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-white disabled:opacity-50"
+          >
+            {deduplicateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <GitMerge size={16} />}
+            Deduplicate
+          </button>
         </div>
       </div>
+      {(dedupeMessage || deduplicateMutation.error) && (
+        <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
+          {dedupeMessage && <p className="text-slate-700">{dedupeMessage}</p>}
+          {deduplicateMutation.error && <p className="text-red-700">{deduplicateMutation.error.message}</p>}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
         <div className="relative min-w-[260px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />

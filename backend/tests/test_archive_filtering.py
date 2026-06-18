@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import select
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -9,6 +10,7 @@ from app.api.routes.graph import (
     ManualRelationshipCreate,
     TagRename,
     create_manual_relationship,
+    deduplicate_graph,
     delete_label,
     delete_tag,
     rename_label,
@@ -382,6 +384,57 @@ def test_create_manual_relationship_adds_traceable_graph_edge(db_session: Sessio
     assert relationship.relationship_type == "belongs_to"
     assert any(node.label == "Orphan card" for node in graph.nodes)
     assert ("entity:orphan-card", "project:workflow-imagination", "belongs_to") in edge_pairs
+
+
+def test_graph_deduplicate_merges_projects_tags_and_relationships(db_session: Session) -> None:
+    memory, raw_item = _memory(db_session)
+    canonical_project = Project(name="Workflow Imagination")
+    duplicate_project = Project(name="workflow imagination project")
+    canonical_tag = Tag(name="website")
+    duplicate_tag = Tag(name=" Website ")
+    db_session.add_all([canonical_project, duplicate_project, canonical_tag, duplicate_tag])
+    db_session.flush()
+    task = Task(memory_id=memory.id, project_id=duplicate_project.id, title="Task", source_raw_item_id=raw_item.id)
+    memory.tags.extend([duplicate_tag])
+    relationship = Relationship(
+        memory_id=memory.id,
+        source_label=" Workflow Imagination Project ",
+        target_label="Task ",
+        relationship_type="Related To",
+        source_node_type="project",
+        target_node_type="task",
+        source_raw_item_id=raw_item.id,
+    )
+    duplicate_relationship = Relationship(
+        memory_id=memory.id,
+        source_label="workflow imagination",
+        target_label="Task",
+        relationship_type="related_to",
+        source_node_type="project",
+        target_node_type="task",
+        source_raw_item_id=raw_item.id,
+    )
+    db_session.add_all([task, relationship, duplicate_relationship])
+    db_session.commit()
+
+    result = deduplicate_graph(db_session)
+    db_session.refresh(task)
+    db_session.refresh(memory)
+
+    assert result["status"] == "deduplicated"
+    assert result["projects_merged"] == 1
+    assert result["tags_merged"] == 1
+    assert result["relationships_removed"] == 1
+    assert task.project_id == canonical_project.id
+    assert canonical_tag in memory.tags
+    assert duplicate_tag not in memory.tags
+    assert db_session.get(Project, duplicate_project.id) is None
+    assert db_session.get(Tag, duplicate_tag.id) is None
+    remaining_relationships = db_session.scalars(select(Relationship)).all()
+    assert len(remaining_relationships) == 1
+    assert remaining_relationships[0].source_label == "Workflow Imagination"
+    assert remaining_relationships[0].target_label == "Task"
+    assert remaining_relationships[0].relationship_type == "related_to"
 
 
 def _memory(db_session: Session) -> tuple[Memory, RawItem]:

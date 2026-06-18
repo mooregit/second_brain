@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Memory, RawItem, Relationship, Tag
+from app.models import Decision, Idea, Memory, OpenQuestion, Project, RawItem, Relationship, Tag, Task
 from app.schemas.graph import GraphResponse
 from app.services.graph_service import GraphService
 
@@ -100,6 +100,23 @@ def create_manual_relationship(payload: ManualRelationshipCreate, db: Session = 
     return {"status": "created", "id": relationship.id, "raw_item_id": raw_item.id, "memory_id": memory.id}
 
 
+@router.post("/deduplicate")
+def deduplicate_graph(db: Session = Depends(get_db)) -> dict:
+    result = {
+        "projects_merged": 0,
+        "tags_merged": 0,
+        "relationship_labels_normalized": 0,
+        "relationships_removed": 0,
+    }
+    result["projects_merged"] = _merge_duplicate_projects(db)
+    result["tags_merged"] = _merge_duplicate_tags(db)
+    result["relationship_labels_normalized"] = _normalize_relationship_labels(db)
+    result["relationships_removed"] = _remove_duplicate_relationships(db)
+    db.commit()
+    result["status"] = "deduplicated"
+    return result
+
+
 @router.patch("/tags/{tag_id}")
 def rename_tag(tag_id: str, payload: TagRename, db: Session = Depends(get_db)) -> dict:
     tag = db.get(Tag, tag_id)
@@ -174,4 +191,99 @@ def delete_label(payload: LabelDelete, db: Session = Depends(get_db)) -> dict:
 
 
 def _normalize_label(label: str) -> str:
-    return " ".join(label.lower().strip().split())
+    normalized = " ".join(label.lower().strip().split())
+    normalized = normalized.rstrip("/")
+    if normalized.endswith(" project"):
+        normalized = normalized.removesuffix(" project").strip()
+    return normalized
+
+
+def _canonical_label(label: str) -> str:
+    return " ".join(label.strip().split()).rstrip("/")
+
+
+def _merge_duplicate_projects(db: Session) -> int:
+    merged = 0
+    groups: dict[str, list[Project]] = {}
+    for project in db.scalars(select(Project)).all():
+        groups.setdefault(_normalize_label(project.name), []).append(project)
+
+    for projects in groups.values():
+        if len(projects) < 2:
+            continue
+        projects.sort(key=lambda project: (_normalize_label(project.name) != _canonical_label(project.name).lower(), project.created_at, project.name.lower()))
+        canonical = projects[0]
+        for duplicate in projects[1:]:
+            for model in (Task, Idea, Decision, OpenQuestion):
+                for record in db.scalars(select(model).where(model.project_id == duplicate.id)).all():
+                    record.project_id = canonical.id
+                    record.project = canonical
+            if not canonical.description and duplicate.description:
+                canonical.description = duplicate.description
+            for relationship in db.scalars(select(Relationship)).all():
+                if relationship.source_node_type == "project" and _normalize_label(relationship.source_label) == _normalize_label(duplicate.name):
+                    relationship.source_label = canonical.name
+                if relationship.target_node_type == "project" and _normalize_label(relationship.target_label) == _normalize_label(duplicate.name):
+                    relationship.target_label = canonical.name
+            db.delete(duplicate)
+            merged += 1
+    return merged
+
+
+def _merge_duplicate_tags(db: Session) -> int:
+    merged = 0
+    groups: dict[str, list[Tag]] = {}
+    for tag in db.scalars(select(Tag)).all():
+        groups.setdefault(_normalize_label(tag.name), []).append(tag)
+
+    for tags in groups.values():
+        if len(tags) < 2:
+            continue
+        tags.sort(key=lambda tag: (_canonical_label(tag.name) != tag.name, tag.name.lower()))
+        canonical = tags[0]
+        for duplicate in tags[1:]:
+            for memory in list(duplicate.memories):
+                if canonical not in memory.tags:
+                    memory.tags.append(canonical)
+                memory.tags.remove(duplicate)
+            db.delete(duplicate)
+            merged += 1
+    return merged
+
+
+def _normalize_relationship_labels(db: Session) -> int:
+    updated = 0
+    for relationship in db.scalars(select(Relationship)).all():
+        source_label = _canonical_label(relationship.source_label)
+        target_label = _canonical_label(relationship.target_label)
+        relationship_type = _canonical_label(relationship.relationship_type).lower().replace(" ", "_")
+        if source_label != relationship.source_label:
+            relationship.source_label = source_label
+            updated += 1
+        if target_label != relationship.target_label:
+            relationship.target_label = target_label
+            updated += 1
+        if relationship_type != relationship.relationship_type:
+            relationship.relationship_type = relationship_type
+            updated += 1
+    return updated
+
+
+def _remove_duplicate_relationships(db: Session) -> int:
+    removed = 0
+    seen: set[tuple[str, str, str, str, str]] = set()
+    relationships = sorted(db.scalars(select(Relationship)).all(), key=lambda relationship: relationship.created_at)
+    for relationship in relationships:
+        key = (
+            relationship.source_node_type,
+            _normalize_label(relationship.source_label),
+            relationship.target_node_type,
+            _normalize_label(relationship.target_label),
+            _normalize_label(relationship.relationship_type),
+        )
+        if key in seen:
+            db.delete(relationship)
+            removed += 1
+            continue
+        seen.add(key)
+    return removed
