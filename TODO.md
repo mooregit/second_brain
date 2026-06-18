@@ -167,7 +167,12 @@
 - [ ] Add ebook import with text extraction first.
 - [ ] Add long-document/book ingestion with document metadata, section/chapter/page chunking, per-chunk embeddings, staged extraction, and source-linked book notes.
 - [ ] Add OCR for scanned PDFs/images later.
-- [ ] Add Google Sheets import for selected spreadsheets and CSV-like tables.
+- [ ] Add Google Sheets ingestion:
+  - Snapshot import for selected spreadsheet tabs/ranges.
+  - Watched sheet sync for configured spreadsheet IDs/ranges, manual first and scheduled later.
+  - Store `spreadsheet_sources` metadata and `table_artifacts` with columns, rows, range, row count, and content hash.
+  - Support import modes: reference only, summarize only, row-per-memory, and extract tasks/questions.
+  - Add Ask retrieval over sheet titles, headers, row summaries, and table artifacts with sheet/range citations.
 - [ ] Add Excel import for `.xlsx` and `.csv` files.
 - [ ] Add Airtable import for selected bases and tables.
 - [ ] Add CRM export import for contacts, notes, tasks, and opportunities.

@@ -48,6 +48,7 @@ Prioritize connectors that fit the local-first model and create `RawItem`, optio
 - Whole-book ingestion for PDFs/EPUBs with document metadata, chapter/page/section chunking, per-chunk embeddings, staged concept extraction, and source-linked notes.
 - Apple Notes/iCloud Notes through export-to-folder or share-to-email workflows.
 - Google Drive, Google Docs, Google Calendar, and Google Sheets.
+- Structured table ingestion for Google Sheets and CSV-like sources, including table artifacts, watched ranges, import modes, and range-level Ask citations.
 - NotebookLM import workflows for original Drive-backed sources, saved notes/briefing docs/study guides/FAQs/exported summaries, and shared/public notebook links.
 - Notion pages and databases through the official Notion API.
 - GitHub issues, pull requests, comments, project boards, and commits.
