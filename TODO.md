@@ -146,6 +146,7 @@
 - [ ] Add Markdown folder import for Obsidian, Logseq, and plain `.md` note folders.
 - [ ] Add local file import support for `.txt`, `.md`, `.html`, `.csv`, and `.json`.
 - [ ] Add Google Drive import for docs, files, videos, and watched folders.
+- [ ] Add NotebookLM import workflow: import original NotebookLM source files through Google Drive where possible, support manual upload of NotebookLM notes/briefing docs/study guides/FAQs/exported summaries, investigate shared/public notebook link ingestion, and preserve notebook title/source URL metadata.
 - [ ] Add browser bookmark/read-later imports from Chrome bookmarks, Pocket, Instapaper, and Raindrop exports.
 - [ ] Add Notion import through the official Notion API for selected pages and databases.
 - [ ] Add Google Calendar import for meetings, events, descriptions, and attendees.
