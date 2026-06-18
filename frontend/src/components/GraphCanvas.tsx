@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BadgeCheck, Box, Briefcase, CheckSquare, CircleHelp, FileText, GitBranch, Lightbulb, Tag, User, type LucideIcon } from 'lucide-react';
 import ReactFlow, { Background, Controls, Edge, Node, ReactFlowProvider, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import type { GraphResponse } from '../api/graph';
@@ -158,17 +159,18 @@ function GraphCanvasInner({
     rowByColumn.set(column, row + 1);
     const isSelected = selectedNodeId === node.id;
     const isDimmed = relatedNodeIds ? !relatedNodeIds.has(node.id) : false;
+    const theme = nodeTheme(node.type);
     return {
       id: node.id,
-      data: { label: node.label },
+      data: { label: <NodeLabel label={node.label} type={node.type} /> },
       position: { x: column * 310, y: row * 120 },
       type: 'default',
       className: `graph-node-${node.type}`,
       style: {
         width: 180,
         minHeight: 54,
-        border: isSelected ? '2px solid #f97316' : '1px solid #cbd5e1',
-        background: nodeBackground(node.type),
+        border: isSelected ? '2px solid #f97316' : `1px solid ${theme.border}`,
+        background: theme.background,
         color: '#0f172a',
         opacity: isDimmed ? 0.22 : 1,
         boxShadow: isSelected ? '0 0 0 3px rgba(249, 115, 22, 0.18)' : undefined,
@@ -220,17 +222,30 @@ function GraphCanvasInner({
   );
 }
 
-function nodeBackground(type: string) {
-  const backgrounds: Record<string, string> = {
-    project: '#fff7ed',
-    source: '#f8fafc',
-    task: '#eef2ff',
-    idea: '#ecfdf5',
-    decision: '#fefce8',
-    question: '#fdf2f8',
-    tag: '#f1f5f9',
-    person: '#eff6ff',
-    entity: '#f5f3ff'
+function NodeLabel({ label, type }: { label: string; type: string }) {
+  const theme = nodeTheme(type);
+  const Icon = theme.icon;
+  return (
+    <div className="flex min-h-[34px] items-center gap-2 text-left">
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: theme.badgeBackground, color: theme.accent }}>
+        <Icon size={14} strokeWidth={2.2} />
+      </span>
+      <span className="min-w-0 break-words text-xs leading-snug text-slate-800">{label}</span>
+    </div>
+  );
+}
+
+function nodeTheme(type: string): { background: string; border: string; badgeBackground: string; accent: string; icon: LucideIcon } {
+  const themes: Record<string, { background: string; border: string; badgeBackground: string; accent: string; icon: LucideIcon }> = {
+    project: { background: '#fff7ed', border: '#fed7aa', badgeBackground: '#ffedd5', accent: '#c2410c', icon: Briefcase },
+    source: { background: '#f8fafc', border: '#cbd5e1', badgeBackground: '#e2e8f0', accent: '#475569', icon: FileText },
+    task: { background: '#eef2ff', border: '#c7d2fe', badgeBackground: '#e0e7ff', accent: '#4f46e5', icon: CheckSquare },
+    idea: { background: '#ecfdf5', border: '#bbf7d0', badgeBackground: '#dcfce7', accent: '#15803d', icon: Lightbulb },
+    decision: { background: '#fefce8', border: '#fde68a', badgeBackground: '#fef3c7', accent: '#a16207', icon: BadgeCheck },
+    question: { background: '#fdf2f8', border: '#fbcfe8', badgeBackground: '#fce7f3', accent: '#be185d', icon: CircleHelp },
+    tag: { background: '#f1f5f9', border: '#cbd5e1', badgeBackground: '#e2e8f0', accent: '#334155', icon: Tag },
+    person: { background: '#eff6ff', border: '#bfdbfe', badgeBackground: '#dbeafe', accent: '#1d4ed8', icon: User },
+    entity: { background: '#f5f3ff', border: '#ddd6fe', badgeBackground: '#ede9fe', accent: '#6d28d9', icon: GitBranch }
   };
-  return backgrounds[type] ?? '#ffffff';
+  return themes[type] ?? { background: '#ffffff', border: '#cbd5e1', badgeBackground: '#f1f5f9', accent: '#475569', icon: Box };
 }
