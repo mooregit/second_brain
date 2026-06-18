@@ -68,7 +68,7 @@
 - [x] Add graph layout modes for project map, source map, task map, and entity map.
 - [x] Show edge labels on hover or selected-node focus instead of always relying on full graph labels.
 - [x] Add clearer node type styling with restrained colors/icons for projects, tasks, questions, ideas, decisions, tags, sources, and entities.
-- [ ] Add graph cleanup tools for merging duplicate nodes, renaming tags/entities, reassigning records to projects, and archiving/deleting from the graph.
+- [x] Add graph cleanup tools for merging duplicate nodes, renaming tags/entities, reassigning records to projects, and archiving/deleting from the graph.
 - [ ] Add a source trace toggle so source email/note/file nodes can be shown for audit mode and hidden for daily use.
 
 ## Phase 6: File And Folder Inputs

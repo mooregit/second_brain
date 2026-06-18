@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { ExternalLink, Loader2, Save, Search, X } from 'lucide-react';
-import { GraphNode, getGraph } from '../api/graph';
-import { patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
-import { patchProject } from '../api/views';
+import { Archive, ExternalLink, Loader2, Save, Search, Trash2, X } from 'lucide-react';
+import { deleteGraphLabel, deleteGraphTag, GraphNode, getGraph, renameGraphLabel, renameGraphTag } from '../api/graph';
+import { deleteDecision, deleteIdea, deleteQuestion, deleteTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
+import { deleteProject, patchProject } from '../api/views';
 import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
 
 const defaultTypes = ['project', 'source', 'task', 'idea', 'decision', 'question'];
@@ -31,11 +31,14 @@ export default function Graph() {
   const selectedNode = graph.data?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const editMutation = useMutation({
     mutationFn: ({ node, label }: { node: GraphNode; label: string }) => patchGraphNode(node, label),
+    onSuccess: () => invalidateGraphData(queryClient)
+  });
+  const cleanupMutation = useMutation({
+    mutationFn: runGraphCleanup,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['graph'] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['memories'] });
-      queryClient.invalidateQueries({ queryKey: ['items'] });
+      setSelectedNodeId(null);
+      setLabelDraft('');
+      invalidateGraphData(queryClient);
     }
   });
   const visibleTypes = new Set([
@@ -247,8 +250,21 @@ export default function Graph() {
           labelDraft={labelDraft}
           setLabelDraft={setLabelDraft}
           isSaving={editMutation.isPending}
+          isCleaning={cleanupMutation.isPending}
+          projectOptions={projectOptions}
           onSave={() => {
             if (selectedNode && labelDraft.trim()) editMutation.mutate({ node: selectedNode, label: labelDraft.trim() });
+          }}
+          onArchive={() => {
+            if (selectedNode) cleanupMutation.mutate({ kind: 'archive', node: selectedNode });
+          }}
+          onDelete={() => {
+            if (selectedNode && window.confirm(`Delete "${selectedNode.label}" from the graph?`)) {
+              cleanupMutation.mutate({ kind: 'delete', node: selectedNode });
+            }
+          }}
+          onReassign={(projectId) => {
+            if (selectedNode) cleanupMutation.mutate({ kind: 'reassign', node: selectedNode, projectId });
           }}
         />
       </div>
@@ -286,13 +302,23 @@ function GraphDetailDrawer({
   labelDraft,
   setLabelDraft,
   isSaving,
-  onSave
+  isCleaning,
+  projectOptions,
+  onSave,
+  onArchive,
+  onDelete,
+  onReassign
 }: {
   node: GraphNode | null;
   labelDraft: string;
   setLabelDraft: (value: string) => void;
   isSaving: boolean;
+  isCleaning: boolean;
+  projectOptions: { id: string; label: string }[];
   onSave: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  onReassign: (projectId: string | null) => void;
 }) {
   if (!node) {
     return (
@@ -305,6 +331,11 @@ function GraphDetailDrawer({
   const rawItemId = typeof node.metadata.raw_item_id === 'string' ? node.metadata.raw_item_id : null;
   const tags = Array.isArray(node.metadata.tags) ? node.metadata.tags.filter((tag): tag is string => typeof tag === 'string') : [];
   const body = stringMetadata(node, 'body') ?? stringMetadata(node, 'description') ?? stringMetadata(node, 'rationale');
+  const status = stringMetadata(node, 'status');
+  const canArchive = ['task', 'idea', 'question'].includes(node.type) && status !== 'archived';
+  const canDelete = ['project', 'task', 'idea', 'decision', 'question', 'tag', 'entity', 'person'].includes(node.type);
+  const canReassign = ['task', 'idea', 'decision', 'question'].includes(node.type);
+  const projectId = stringMetadata(node, 'project_id') ?? '';
 
   return (
     <aside className="rounded-md border border-slate-200 bg-white p-4">
@@ -351,7 +382,7 @@ function GraphDetailDrawer({
         <button
           type="button"
           onClick={onSave}
-          disabled={isSaving || !labelDraft.trim()}
+          disabled={isSaving || isCleaning || !labelDraft.trim()}
           className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"
         >
           {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -359,6 +390,50 @@ function GraphDetailDrawer({
         </button>
       ) : (
         <p className="mt-3 rounded-md bg-slate-50 p-2 text-sm text-slate-600">This node is derived from source text or tags and is not directly editable yet.</p>
+      )}
+      {canReassign && (
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          Project
+          <select
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+            value={projectId}
+            disabled={isCleaning}
+            onChange={(event) => onReassign(event.target.value || null)}
+          >
+            <option value="">No project</option>
+            {projectOptions.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {(canArchive || canDelete) && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {canArchive && (
+            <button
+              type="button"
+              onClick={onArchive}
+              disabled={isCleaning}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {isCleaning ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}
+              Archive
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={isCleaning}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              {isCleaning ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              Delete
+            </button>
+          )}
+        </div>
       )}
       {rawItemId && (
         <Link className="mt-3 inline-flex items-center gap-2 text-sm text-sky-700 underline-offset-2 hover:underline" to={`/items/${rawItemId}`}>
@@ -398,7 +473,7 @@ function arrayMetadata(node: GraphNode, key: string) {
 }
 
 function isEditableNode(node: GraphNode): boolean {
-  return ['project', 'task', 'idea', 'decision', 'question'].includes(node.type);
+  return ['project', 'task', 'idea', 'decision', 'question', 'tag', 'entity', 'person'].includes(node.type);
 }
 
 async function patchGraphNode(node: GraphNode, label: string) {
@@ -417,5 +492,52 @@ async function patchGraphNode(node: GraphNode, label: string) {
   if (node.type === 'question' && typeof node.metadata.question_id === 'string') {
     return patchQuestion(node.metadata.question_id, { question: label });
   }
+  if (node.type === 'tag' && typeof node.metadata.tag_id === 'string') {
+    return renameGraphTag(node.metadata.tag_id, label);
+  }
+  if ((node.type === 'entity' || node.type === 'person') && node.label !== label) {
+    return renameGraphLabel(node.type, node.label, label);
+  }
   throw new Error('This graph node cannot be edited directly.');
+}
+
+type CleanupAction =
+  | { kind: 'archive'; node: GraphNode }
+  | { kind: 'delete'; node: GraphNode }
+  | { kind: 'reassign'; node: GraphNode; projectId: string | null };
+
+async function runGraphCleanup(action: CleanupAction) {
+  const { node } = action;
+  if (action.kind === 'archive') {
+    if (node.type === 'task' && typeof node.metadata.task_id === 'string') return patchTask(node.metadata.task_id, { status: 'archived' });
+    if (node.type === 'idea' && typeof node.metadata.idea_id === 'string') return patchIdea(node.metadata.idea_id, { status: 'archived' });
+    if (node.type === 'question' && typeof node.metadata.question_id === 'string') return patchQuestion(node.metadata.question_id, { status: 'archived' });
+  }
+  if (action.kind === 'reassign') {
+    if (node.type === 'task' && typeof node.metadata.task_id === 'string') return patchTask(node.metadata.task_id, { project_id: action.projectId });
+    if (node.type === 'idea' && typeof node.metadata.idea_id === 'string') return patchIdea(node.metadata.idea_id, { project_id: action.projectId });
+    if (node.type === 'decision' && typeof node.metadata.decision_id === 'string') return patchDecision(node.metadata.decision_id, { project_id: action.projectId });
+    if (node.type === 'question' && typeof node.metadata.question_id === 'string') return patchQuestion(node.metadata.question_id, { project_id: action.projectId });
+  }
+  if (action.kind === 'delete') {
+    if (node.type === 'project' && typeof node.metadata.project_id === 'string') return deleteProject(node.metadata.project_id);
+    if (node.type === 'task' && typeof node.metadata.task_id === 'string') return deleteTask(node.metadata.task_id);
+    if (node.type === 'idea' && typeof node.metadata.idea_id === 'string') return deleteIdea(node.metadata.idea_id);
+    if (node.type === 'decision' && typeof node.metadata.decision_id === 'string') return deleteDecision(node.metadata.decision_id);
+    if (node.type === 'question' && typeof node.metadata.question_id === 'string') return deleteQuestion(node.metadata.question_id);
+    if (node.type === 'tag' && typeof node.metadata.tag_id === 'string') return deleteGraphTag(node.metadata.tag_id);
+    if (node.type === 'entity' || node.type === 'person') return deleteGraphLabel(node.type, node.label);
+  }
+  throw new Error('This graph cleanup action is not supported for the selected node.');
+}
+
+function invalidateGraphData(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['graph'] });
+  queryClient.invalidateQueries({ queryKey: ['projects'] });
+  queryClient.invalidateQueries({ queryKey: ['memories'] });
+  queryClient.invalidateQueries({ queryKey: ['items'] });
+  queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  queryClient.invalidateQueries({ queryKey: ['ideas'] });
+  queryClient.invalidateQueries({ queryKey: ['decisions'] });
+  queryClient.invalidateQueries({ queryKey: ['open-questions'] });
 }

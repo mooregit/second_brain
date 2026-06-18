@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.database import Base
+from app.api.routes.graph import LabelDelete, LabelRename, TagRename, delete_label, delete_tag, rename_label, rename_tag
 from app.models import EmailMessage, Embedding, Idea, Memory, OpenQuestion, Project, RawItem, Relationship, Tag, Task
 from app.services.graph_service import GraphService
 from app.services.retrieval_service import RetrievalService
@@ -272,6 +273,81 @@ def test_graph_hides_gmail_sender_signature_tags_and_relationships(db_session: S
 
     assert "Russell G. Moore" not in labels
     assert "website" in labels
+
+
+def test_graph_cleanup_renames_tag_and_merges_existing_tag(db_session: Session) -> None:
+    memory, _ = _memory(db_session)
+    old_tag = Tag(name="old workflow")
+    existing_tag = Tag(name="workflow")
+    db_session.add_all([old_tag, existing_tag])
+    db_session.flush()
+    memory.tags.extend([old_tag])
+    db_session.commit()
+
+    result = rename_tag(old_tag.id, TagRename(name="workflow"), db_session)
+    db_session.refresh(memory)
+
+    assert result["status"] == "merged"
+    assert existing_tag in memory.tags
+    assert old_tag not in memory.tags
+    assert db_session.get(Tag, old_tag.id) is None
+
+
+def test_graph_cleanup_deletes_tag(db_session: Session) -> None:
+    memory, _ = _memory(db_session)
+    tag = Tag(name="temporary")
+    db_session.add(tag)
+    db_session.flush()
+    memory.tags.append(tag)
+    db_session.commit()
+
+    result = delete_tag(tag.id, db_session)
+    db_session.refresh(memory)
+
+    assert result == {"status": "deleted", "id": tag.id}
+    assert tag not in memory.tags
+    assert db_session.get(Tag, tag.id) is None
+
+
+def test_graph_cleanup_renames_entity_label(db_session: Session) -> None:
+    memory, raw_item = _memory(db_session)
+    relationship = Relationship(
+        memory_id=memory.id,
+        source_label="old entity",
+        target_label="target",
+        relationship_type="mentions",
+        source_node_type="entity",
+        target_node_type="entity",
+        source_raw_item_id=raw_item.id,
+    )
+    db_session.add(relationship)
+    db_session.commit()
+
+    result = rename_label(LabelRename(node_type="entity", old_label="old entity", new_label="new entity"), db_session)
+    db_session.refresh(relationship)
+
+    assert result["updated"] == 1
+    assert relationship.source_label == "new entity"
+
+
+def test_graph_cleanup_deletes_entity_label_relationships(db_session: Session) -> None:
+    memory, raw_item = _memory(db_session)
+    relationship = Relationship(
+        memory_id=memory.id,
+        source_label="remove me",
+        target_label="target",
+        relationship_type="mentions",
+        source_node_type="entity",
+        target_node_type="entity",
+        source_raw_item_id=raw_item.id,
+    )
+    db_session.add(relationship)
+    db_session.commit()
+
+    result = delete_label(LabelDelete(node_type="entity", label="remove me"), db_session)
+
+    assert result["deleted"] == 1
+    assert db_session.get(Relationship, relationship.id) is None
 
 
 def _memory(db_session: Session) -> tuple[Memory, RawItem]:
