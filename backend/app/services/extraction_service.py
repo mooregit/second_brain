@@ -33,7 +33,7 @@ class ExtractionService:
         raw_output = ""
         try:
             raw_output = await self.ollama.generate(self.settings.ollama_extraction_model, extraction_prompt)
-            parsed = self._parse(raw_output)
+            parsed = self._normalize_extraction_payload(self._parse(raw_output), item.title)
             result = ExtractionResult.model_validate(parsed)
         except (json.JSONDecodeError, ValidationError) as exc:
             repair_prompt = (
@@ -43,7 +43,7 @@ class ExtractionService:
             )
             try:
                 repaired_output = await self.ollama.generate(self.settings.ollama_extraction_model, repair_prompt)
-                parsed = self._parse(repaired_output)
+                parsed = self._normalize_extraction_payload(self._parse(repaired_output), item.title)
                 result = ExtractionResult.model_validate(parsed)
                 raw_output = f"{raw_output}\n\n--- repaired ---\n{repaired_output}"
             except (json.JSONDecodeError, ValidationError, Exception) as repair_exc:
@@ -242,6 +242,97 @@ class ExtractionService:
         if start >= 0 and end >= start:
             text = text[start : end + 1]
         return json.loads(text)
+
+    def _normalize_extraction_payload(self, payload: dict, title: str) -> dict:
+        normalized = dict(payload)
+        normalized.setdefault("summary", self._summary_from_payload(normalized, title))
+        normalized.setdefault("memory_type", "note")
+        normalized.setdefault("projects", [])
+        normalized.setdefault("people", [])
+        normalized["tasks"] = self._normalize_tasks(normalized.get("tasks", []))
+        normalized.setdefault("ideas", [])
+        normalized["decisions"] = self._normalize_decisions(normalized.get("decisions", []))
+        normalized.setdefault("open_questions", [])
+        normalized.setdefault("tags", [])
+        normalized.setdefault("entities", [])
+        normalized["relationships"] = self._normalize_relationships(normalized.get("relationships", []))
+        normalized.setdefault("suggested_actions", [])
+        normalized.setdefault("confidence", 0.5)
+        return normalized
+
+    def _summary_from_payload(self, payload: dict, title: str) -> str:
+        for key in ("summary", "title", "description", "overview", "main_idea"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        for key in ("key_ai_trends", "topics", "sections", "items"):
+            value = payload.get(key)
+            if isinstance(value, list) and value:
+                labels = []
+                for item in value[:3]:
+                    if isinstance(item, dict):
+                        label = item.get("title") or item.get("name") or item.get("summary")
+                        if isinstance(label, str) and label.strip():
+                            labels.append(label.strip())
+                    elif isinstance(item, str) and item.strip():
+                        labels.append(item.strip())
+                if labels:
+                    return "; ".join(labels)
+        return title.strip() or "Imported item"
+
+    def _normalize_tasks(self, tasks: object) -> list[dict]:
+        if not isinstance(tasks, list):
+            return []
+        normalized = []
+        for task in tasks:
+            if isinstance(task, str) and task.strip():
+                normalized.append({"title": task.strip(), "description": None, "priority": None, "due_date": None, "status": "open"})
+            elif isinstance(task, dict):
+                title = task.get("title") or task.get("task") or task.get("name")
+                if isinstance(title, str) and title.strip():
+                    normalized.append(
+                        {
+                            "title": title.strip(),
+                            "description": task.get("description"),
+                            "priority": task.get("priority"),
+                            "due_date": task.get("due_date"),
+                            "status": task.get("status") or "open",
+                        }
+                    )
+        return normalized
+
+    def _normalize_decisions(self, decisions: object) -> list[dict]:
+        if not isinstance(decisions, list):
+            return []
+        normalized = []
+        for decision in decisions:
+            if isinstance(decision, str) and decision.strip():
+                normalized.append({"title": decision.strip(), "rationale": None, "confidence": 0.5})
+            elif isinstance(decision, dict):
+                title = decision.get("title") or decision.get("decision") or decision.get("name")
+                if isinstance(title, str) and title.strip():
+                    normalized.append(
+                        {
+                            "title": title.strip(),
+                            "rationale": decision.get("rationale"),
+                            "confidence": decision.get("confidence", 0.5),
+                        }
+                    )
+        return normalized
+
+    def _normalize_relationships(self, relationships: object) -> list[dict]:
+        if not isinstance(relationships, list):
+            return []
+        normalized = []
+        for relationship in relationships:
+            if not isinstance(relationship, dict):
+                continue
+            source = relationship.get("source") or relationship.get("from")
+            target = relationship.get("target") or relationship.get("to")
+            label = relationship.get("relationship") or relationship.get("relationship_type") or relationship.get("type")
+            if all(isinstance(value, str) and value.strip() for value in (source, target, label)):
+                normalized.append({"source": source.strip(), "target": target.strip(), "relationship": label.strip()})
+        return normalized
 
     def _parse_date(self, value: str | None) -> date | None:
         if not value:

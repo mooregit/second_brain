@@ -59,6 +59,46 @@ def test_persist_result_does_not_create_person_for_gmail_sender_signature(db_ses
     assert db_session.scalars(select(Person)).all() == []
 
 
+def test_normalize_extraction_payload_adds_required_fields_and_coerces_task_strings(db_session: Session) -> None:
+    payload = {
+        "title": "A Builder You Should Know",
+        "tasks": [
+            "Build a marketplace for Armenia",
+            "Give Epic away to teachers to drive organic growth",
+        ],
+        "tags": ["startup"],
+    }
+
+    normalized = ExtractionService(db_session)._normalize_extraction_payload(payload, "Email subject")
+    result = ExtractionResult.model_validate(normalized)
+
+    assert result.summary == "A Builder You Should Know"
+    assert result.confidence == 0.5
+    assert [task.title for task in result.tasks] == [
+        "Build a marketplace for Armenia",
+        "Give Epic away to teachers to drive organic growth",
+    ]
+    assert all(task.status == "open" for task in result.tasks)
+
+
+def test_normalize_extraction_payload_summarizes_alternate_list_shape(db_session: Session) -> None:
+    payload = {
+        "key_ai_trends": [
+            {"title": "Agentic workflows"},
+            {"title": "Local models"},
+        ],
+        "relationships": [{"from": "agents", "to": "workflows", "type": "automate"}],
+    }
+
+    normalized = ExtractionService(db_session)._normalize_extraction_payload(payload, "AI trends email")
+    result = ExtractionResult.model_validate(normalized)
+
+    assert result.summary == "Agentic workflows; Local models"
+    assert result.relationships[0].source == "agents"
+    assert result.relationships[0].target == "workflows"
+    assert result.relationships[0].relationship == "automate"
+
+
 def _result(people: list[str]) -> ExtractionResult:
     return ExtractionResult.model_validate(
         {
