@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Loader2, Save, Search, X } from 'lucide-react';
@@ -19,6 +19,11 @@ export default function Graph() {
   const [labelDraft, setLabelDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchMessage, setSearchMessage] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
+  const [sourceTypeFilter, setSourceTypeFilter] = useState('');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
   const graph = useQuery({ queryKey: ['graph', showArchived], queryFn: () => getGraph(showArchived) });
   const selectedNode = graph.data?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const editMutation = useMutation({
@@ -35,7 +40,21 @@ export default function Graph() {
     ...(showTags ? ['tag'] : []),
     ...(showEntities ? ['entity', 'person'] : [])
   ]);
-  const visibleNodes = graph.data?.nodes.filter((node) => visibleTypes.has(node.type)) ?? [];
+  const projectOptions = useMemo(() => graph.data?.nodes.filter((node) => node.type === 'project').map((node) => ({ id: String(node.metadata.project_id ?? ''), label: node.label })).filter((project) => project.id) ?? [], [graph.data?.nodes]);
+  const tagOptions = useMemo(() => graph.data?.nodes.filter((node) => node.type === 'tag').map((node) => node.label).sort((left, right) => left.localeCompare(right)) ?? [], [graph.data?.nodes]);
+  const sourceTypeOptions = useMemo(() => {
+    const sourceTypes = new Set<string>();
+    for (const node of graph.data?.nodes ?? []) {
+      const sourceType = stringMetadata(node, 'source_type');
+      if (sourceType) sourceTypes.add(sourceType);
+    }
+    return [...sourceTypes].sort();
+  }, [graph.data?.nodes]);
+  const visibleNodeIds = useMemo(() => {
+    if (!graph.data) return new Set<string>();
+    return new Set(graph.data.nodes.filter((node) => passesGraphFilters(node, { projectFilter, tagFilter, sourceTypeFilter, dateFromFilter, dateToFilter })).map((node) => node.id));
+  }, [dateFromFilter, dateToFilter, graph.data, projectFilter, sourceTypeFilter, tagFilter]);
+  const visibleNodes = graph.data?.nodes.filter((node) => visibleTypes.has(node.type) && visibleNodeIds.has(node.id)) ?? [];
 
   function selectNode(nodeId: string | null) {
     const node = graph.data?.nodes.find((candidate) => candidate.id === nodeId);
@@ -119,11 +138,49 @@ export default function Graph() {
         </button>
         {searchMessage && <div className="text-sm text-slate-500">{searchMessage}</div>}
       </div>
+      <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-5">
+        <label className="block text-xs font-medium text-slate-600">
+          Project
+          <select className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}>
+            <option value="">All projects</option>
+            {projectOptions.map((project) => (
+              <option key={project.id} value={project.id}>{project.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          Tag
+          <select className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
+            <option value="">All tags</option>
+            {tagOptions.map((tag) => (
+              <option key={tag} value={tag}>{tag}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          Source
+          <select className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={sourceTypeFilter} onChange={(event) => setSourceTypeFilter(event.target.value)}>
+            <option value="">All sources</option>
+            {sourceTypeOptions.map((sourceType) => (
+              <option key={sourceType} value={sourceType}>{sourceType}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          From
+          <input className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} />
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
+          To
+          <input className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} />
+        </label>
+      </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         {graph.data ? (
           <GraphCanvas
             graph={graph.data}
             visibleTypes={visibleTypes}
+            visibleNodeIds={visibleNodeIds}
             showEdgeLabels={showEdgeLabels}
             selectedNodeId={selectedNodeId}
             onNodeSelect={selectNode}
@@ -145,6 +202,29 @@ export default function Graph() {
       {editMutation.error && <p className="text-sm text-red-700">{editMutation.error.message}</p>}
     </section>
   );
+}
+
+function passesGraphFilters(
+  node: GraphNode,
+  filters: { projectFilter: string; tagFilter: string; sourceTypeFilter: string; dateFromFilter: string; dateToFilter: string }
+) {
+  if (filters.projectFilter) {
+    const nodeProjectId = stringMetadata(node, 'project_id');
+    const isProjectNode = node.type === 'project' && stringMetadata(node, 'project_id') === filters.projectFilter;
+    if (!isProjectNode && nodeProjectId !== filters.projectFilter) return false;
+  }
+  if (filters.tagFilter) {
+    const nodeTags = arrayMetadata(node, 'tags');
+    const isTagNode = node.type === 'tag' && node.label === filters.tagFilter;
+    if (!isTagNode && !nodeTags.includes(filters.tagFilter)) return false;
+  }
+  if (filters.sourceTypeFilter && stringMetadata(node, 'source_type') !== filters.sourceTypeFilter) {
+    return false;
+  }
+  const sourceDate = stringMetadata(node, 'source_created_at')?.slice(0, 10) ?? null;
+  if (filters.dateFromFilter && (!sourceDate || sourceDate < filters.dateFromFilter)) return false;
+  if (filters.dateToFilter && (!sourceDate || sourceDate > filters.dateToFilter)) return false;
+  return true;
 }
 
 function GraphDetailDrawer({
@@ -255,6 +335,11 @@ function stringMetadata(node: GraphNode, key: string) {
 function numberMetadata(node: GraphNode, key: string) {
   const value = node.metadata[key];
   return typeof value === 'number' ? value.toFixed(2) : null;
+}
+
+function arrayMetadata(node: GraphNode, key: string) {
+  const value = node.metadata[key];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 function isEditableNode(node: GraphNode): boolean {

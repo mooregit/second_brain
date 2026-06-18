@@ -86,6 +86,19 @@ def test_graph_links_derived_records_to_their_source_raw_item(db_session: Sessio
     assert (source_node_id, f"idea:{idea.id}", "from_source") in edge_pairs
 
 
+def test_graph_work_nodes_include_source_filter_metadata(db_session: Session) -> None:
+    memory, raw_item = _memory(db_session)
+    task = Task(memory_id=memory.id, title="Website needs work", status="open", source_raw_item_id=raw_item.id)
+    db_session.add(task)
+    db_session.commit()
+
+    graph = GraphService(db_session).build()
+    task_node = next(node for node in graph.nodes if node.id == f"task:{task.id}")
+
+    assert task_node.metadata["source_type"] == raw_item.source_type
+    assert task_node.metadata["source_created_at"].startswith(raw_item.created_at.date().isoformat())
+
+
 def test_graph_hides_source_node_when_title_duplicates_derived_record(db_session: Session) -> None:
     raw_item = RawItem(source_type="gmail", title="Website needs work", body_text="https://saharamediterraneancuisine.shop/", status="processed")
     db_session.add(raw_item)

@@ -18,12 +18,14 @@ const columnByType: Record<string, number> = {
 export default function GraphCanvas({
   graph,
   visibleTypes,
+  visibleNodeIds,
   showEdgeLabels,
   selectedNodeId,
   onNodeSelect
 }: {
   graph: GraphResponse;
   visibleTypes?: Set<string>;
+  visibleNodeIds?: Set<string>;
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
@@ -33,6 +35,7 @@ export default function GraphCanvas({
       <GraphCanvasInner
         graph={graph}
         visibleTypes={visibleTypes}
+        visibleNodeIds={visibleNodeIds}
         showEdgeLabels={showEdgeLabels}
         selectedNodeId={selectedNodeId}
         onNodeSelect={onNodeSelect}
@@ -44,20 +47,25 @@ export default function GraphCanvas({
 function GraphCanvasInner({
   graph,
   visibleTypes,
+  visibleNodeIds,
   showEdgeLabels,
   selectedNodeId,
   onNodeSelect
 }: {
   graph: GraphResponse;
   visibleTypes?: Set<string>;
+  visibleNodeIds?: Set<string>;
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
 }) {
   const { setCenter } = useReactFlow();
-  const filteredNodes = useMemo(() => (visibleTypes ? graph.nodes.filter((node) => visibleTypes.has(node.type)) : graph.nodes), [graph.nodes, visibleTypes]);
-  const visibleNodeIds = useMemo(() => new Set(filteredNodes.map((node) => node.id)), [filteredNodes]);
-  const filteredEdges = useMemo(() => graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)), [graph.edges, visibleNodeIds]);
+  const filteredNodes = useMemo(
+    () => graph.nodes.filter((node) => (!visibleTypes || visibleTypes.has(node.type)) && (!visibleNodeIds || visibleNodeIds.has(node.id))),
+    [graph.nodes, visibleNodeIds, visibleTypes]
+  );
+  const renderedNodeIds = useMemo(() => new Set(filteredNodes.map((node) => node.id)), [filteredNodes]);
+  const filteredEdges = useMemo(() => graph.edges.filter((edge) => renderedNodeIds.has(edge.source) && renderedNodeIds.has(edge.target)), [graph.edges, renderedNodeIds]);
   const relatedNodeIds = useMemo(() => {
     if (!selectedNodeId) return null;
     const ids = new Set([selectedNodeId]);

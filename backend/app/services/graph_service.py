@@ -212,7 +212,7 @@ class GraphService:
                             id=fallback_source_node_id,
                             type="source",
                             label=raw_item.title if raw_item else "Source note",
-                            metadata={"raw_item_id": memory.raw_item_id},
+                            metadata={"raw_item_id": memory.raw_item_id, **self._source_metadata(memory.raw_item_id)},
                         ),
                     )
                     edge_id = f"source-tag:{memory.raw_item_id}:{tag.id}"
@@ -232,9 +232,19 @@ class GraphService:
             self._ensure_project_node(nodes, project_nodes, source_id)
             self._ensure_project_node(nodes, project_nodes, target_id)
             if source_id not in nodes:
-                nodes[source_id] = GraphNode(id=source_id, type=rel.source_node_type, label=rel.source_label, metadata={"raw_item_id": rel.source_raw_item_id})
+                nodes[source_id] = GraphNode(
+                    id=source_id,
+                    type=rel.source_node_type,
+                    label=rel.source_label,
+                    metadata={"raw_item_id": rel.source_raw_item_id, **self._source_metadata(rel.source_raw_item_id)},
+                )
             if target_id not in nodes:
-                nodes[target_id] = GraphNode(id=target_id, type=rel.target_node_type, label=rel.target_label, metadata={"raw_item_id": rel.source_raw_item_id})
+                nodes[target_id] = GraphNode(
+                    id=target_id,
+                    type=rel.target_node_type,
+                    label=rel.target_label,
+                    metadata={"raw_item_id": rel.source_raw_item_id, **self._source_metadata(rel.source_raw_item_id)},
+                )
             self._add_source_edge(nodes, edges, rel.source_raw_item_id, source_id, project_nodes, project_node_by_label)
             self._add_source_edge(nodes, edges, rel.source_raw_item_id, target_id, project_nodes, project_node_by_label)
             if source_id == target_id:
@@ -291,7 +301,7 @@ class GraphService:
                     id=source_node_id,
                     type="source",
                     label=raw_item.title if raw_item else "Source note",
-                    metadata={"raw_item_id": raw_item_id},
+                    metadata={"raw_item_id": raw_item_id, **self._source_metadata(raw_item_id)},
                 ),
             )
         if source_node_id == target_node_id:
@@ -328,6 +338,7 @@ class GraphService:
             "project_name": project_name_by_id.get(project_id or ""),
             "raw_item_id": raw_item_id,
             "source_title": self._source_title(raw_item_id, source_title_by_id),
+            **self._source_metadata(raw_item_id),
             "status": status,
             "tags": self._memory_tags(memory_id, tags_by_memory_id),
         }
@@ -339,6 +350,15 @@ class GraphService:
             raw_item = self.db.get(RawItem, raw_item_id)
             source_title_by_id[raw_item_id] = raw_item.title if raw_item else ""
         return source_title_by_id[raw_item_id] or None
+
+    def _source_metadata(self, raw_item_id: str) -> dict:
+        raw_item = self.db.get(RawItem, raw_item_id)
+        if not raw_item:
+            return {}
+        return {
+            "source_type": raw_item.source_type,
+            "source_created_at": raw_item.created_at.isoformat(),
+        }
 
     def _memory_tags(self, memory_id: str, tags_by_memory_id: dict[str, list[str]]) -> list[str]:
         if memory_id not in tags_by_memory_id:
