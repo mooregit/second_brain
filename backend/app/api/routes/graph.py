@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import Relationship, Tag
+from app.models import Memory, RawItem, Relationship, Tag
 from app.schemas.graph import GraphResponse
 from app.services.graph_service import GraphService
 
@@ -26,9 +26,78 @@ class LabelDelete(BaseModel):
     label: str = Field(min_length=1)
 
 
+class ManualRelationshipCreate(BaseModel):
+    source_label: str = Field(min_length=1)
+    source_node_type: str = Field(min_length=1)
+    target_label: str = Field(min_length=1)
+    target_node_type: str = Field(min_length=1)
+    relationship_type: str = Field(default="related_to", min_length=1)
+
+
 @router.get("", response_model=GraphResponse)
 def graph(show_archived: bool = False, db: Session = Depends(get_db)) -> GraphResponse:
     return GraphService(db).build(show_archived=show_archived)
+
+
+@router.post("/relationships")
+def create_manual_relationship(payload: ManualRelationshipCreate, db: Session = Depends(get_db)) -> dict:
+    source_label = payload.source_label.strip()
+    target_label = payload.target_label.strip()
+    relationship_type = payload.relationship_type.strip() or "related_to"
+    if not source_label or not target_label:
+        raise HTTPException(status_code=422, detail="Source and target labels are required")
+
+    raw_item = RawItem(
+        source_type="manual",
+        title=f"Manual graph relationship: {source_label} {relationship_type} {target_label}"[:160],
+        body_text=f"Manual graph relationship: {source_label} {relationship_type} {target_label}",
+        status="processed",
+        metadata_json={"source": "manual_graph_relationship"},
+    )
+    db.add(raw_item)
+    db.flush()
+    memory = Memory(
+        raw_item_id=raw_item.id,
+        memory_type="note",
+        summary=raw_item.body_text,
+        confidence=1.0,
+        validated_json={
+            "summary": raw_item.body_text,
+            "memory_type": "note",
+            "projects": [],
+            "people": [],
+            "tasks": [],
+            "ideas": [],
+            "decisions": [],
+            "open_questions": [],
+            "tags": ["manual-graph"],
+            "entities": [source_label, target_label],
+            "relationships": [
+                {
+                    "source": source_label,
+                    "target": target_label,
+                    "relationship": relationship_type,
+                }
+            ],
+            "suggested_actions": [],
+            "confidence": 1.0,
+        },
+        raw_llm_output="manual graph relationship",
+    )
+    db.add(memory)
+    db.flush()
+    relationship = Relationship(
+        memory_id=memory.id,
+        source_label=source_label,
+        target_label=target_label,
+        relationship_type=relationship_type,
+        source_node_type=payload.source_node_type.strip() or "entity",
+        target_node_type=payload.target_node_type.strip() or "entity",
+        source_raw_item_id=raw_item.id,
+    )
+    db.add(relationship)
+    db.commit()
+    return {"status": "created", "id": relationship.id, "raw_item_id": raw_item.id, "memory_id": memory.id}
 
 
 @router.patch("/tags/{tag_id}")

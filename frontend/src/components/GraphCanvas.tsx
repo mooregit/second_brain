@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force';
 import { BadgeCheck, Box, Briefcase, CheckSquare, CircleHelp, FileText, GitBranch, Lightbulb, Tag, User, type LucideIcon } from 'lucide-react';
 import ReactFlow, { Background, Controls, Edge, Node, ReactFlowProvider, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
-import type { GraphResponse } from '../api/graph';
+import type { GraphNode, GraphResponse } from '../api/graph';
 
-export type GraphLayoutMode = 'project' | 'source' | 'task' | 'entity';
+export type GraphLayoutMode = 'cluster' | 'project' | 'source' | 'task' | 'entity';
 
-const columnByTypeByLayout: Record<GraphLayoutMode, Record<string, number>> = {
+type ColumnLayoutMode = Exclude<GraphLayoutMode, 'cluster'>;
+
+const columnByTypeByLayout: Record<ColumnLayoutMode, Record<string, number>> = {
   project: {
     project: 0,
     source: 0,
@@ -144,26 +147,19 @@ function GraphCanvasInner({
     }
     return ids;
   }, [filteredEdges, selectedNodeId]);
-  const rowByColumn = new Map<number, number>();
-  const columnByType = columnByTypeByLayout[layoutMode];
-  const sortedNodes = [...filteredNodes].sort((left, right) => {
-    const columnDiff = (columnByType[left.type] ?? 3) - (columnByType[right.type] ?? 3);
-    if (columnDiff !== 0) return columnDiff;
-    const typeDiff = (rowWeightByType[left.type] ?? 99) - (rowWeightByType[right.type] ?? 99);
-    if (typeDiff !== 0) return typeDiff;
-    return left.label.localeCompare(right.label);
-  });
-  const nodes: Node[] = sortedNodes.map((node) => {
-    const column = columnByType[node.type] ?? 3;
-    const row = rowByColumn.get(column) ?? 0;
-    rowByColumn.set(column, row + 1);
+  const nodePositions = useMemo(
+    () => (layoutMode === 'cluster' ? clusterPositions(filteredNodes, filteredEdges) : columnPositions(filteredNodes, layoutMode)),
+    [filteredEdges, filteredNodes, layoutMode]
+  );
+  const nodes: Node[] = filteredNodes.map((node) => {
     const isSelected = selectedNodeId === node.id;
     const isDimmed = relatedNodeIds ? !relatedNodeIds.has(node.id) : false;
     const theme = nodeTheme(node.type);
+    const position = nodePositions.get(node.id) ?? { x: 0, y: 0 };
     return {
       id: node.id,
       data: { label: <NodeLabel label={node.label} type={node.type} /> },
-      position: { x: column * 310, y: row * 120 },
+      position,
       type: 'default',
       className: `graph-node-${node.type}`,
       style: {
@@ -222,6 +218,77 @@ function GraphCanvasInner({
   );
 }
 
+function columnPositions(nodes: GraphNode[], layoutMode: ColumnLayoutMode): Map<string, { x: number; y: number }> {
+  const rowByColumn = new Map<number, number>();
+  const columnByType = columnByTypeByLayout[layoutMode];
+  const sortedNodes = [...nodes].sort((left, right) => {
+    const columnDiff = (columnByType[left.type] ?? 3) - (columnByType[right.type] ?? 3);
+    if (columnDiff !== 0) return columnDiff;
+    const typeDiff = (rowWeightByType[left.type] ?? 99) - (rowWeightByType[right.type] ?? 99);
+    if (typeDiff !== 0) return typeDiff;
+    return left.label.localeCompare(right.label);
+  });
+  return new Map(
+    sortedNodes.map((node) => {
+      const column = columnByType[node.type] ?? 3;
+      const row = rowByColumn.get(column) ?? 0;
+      rowByColumn.set(column, row + 1);
+      return [node.id, { x: column * 310, y: row * 120 }];
+    })
+  );
+}
+
+function clusterPositions(nodes: GraphNode[], edges: GraphResponse['edges']): Map<string, { x: number; y: number }> {
+  const sortedNodes = [...nodes].sort((left, right) => left.id.localeCompare(right.id));
+  const clusterKeys = [...new Set(sortedNodes.map(clusterKey))].sort();
+  const clusterCenters = new Map<string, { x: number; y: number }>();
+  const radius = Math.max(260, Math.ceil(clusterKeys.length / 4) * 220);
+  clusterKeys.forEach((key, index) => {
+    const angle = (index / Math.max(clusterKeys.length, 1)) * Math.PI * 2;
+    clusterCenters.set(key, { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+  });
+  const simulationNodes = sortedNodes.map((node, index) => {
+    const center = clusterCenters.get(clusterKey(node)) ?? { x: 0, y: 0 };
+    const angle = index * 2.399963229728653;
+    return {
+      id: node.id,
+      cluster: clusterKey(node),
+      x: center.x + Math.cos(angle) * 80,
+      y: center.y + Math.sin(angle) * 80
+    };
+  });
+  const simulationLinks = edges.map((edge) => ({ source: edge.source, target: edge.target }));
+  const simulation = forceSimulation(simulationNodes)
+    .force('link', forceLink(simulationLinks).id((node: any) => node.id).distance(170).strength(0.35))
+    .force('charge', forceManyBody().strength(-520))
+    .force('collide', forceCollide(120).strength(0.9))
+    .force('x', forceX((node: any) => clusterCenters.get(node.cluster)?.x ?? 0).strength(0.09))
+    .force('y', forceY((node: any) => clusterCenters.get(node.cluster)?.y ?? 0).strength(0.09))
+    .stop();
+  for (let tick = 0; tick < 220; tick += 1) simulation.tick();
+  const minX = Math.min(...simulationNodes.map((node) => node.x ?? 0));
+  const minY = Math.min(...simulationNodes.map((node) => node.y ?? 0));
+  return new Map(
+    simulationNodes.map((node) => [
+      node.id,
+      {
+        x: Math.round((node.x ?? 0) - minX + 80),
+        y: Math.round((node.y ?? 0) - minY + 80)
+      }
+    ])
+  );
+}
+
+function clusterKey(node: GraphNode): string {
+  const projectId = stringMetadata(node, 'project_id');
+  if (projectId) return `project:${projectId}`;
+  const tags = arrayMetadata(node, 'tags');
+  if (tags.length) return `tag:${tags[0].toLowerCase()}`;
+  const rawItemId = stringMetadata(node, 'raw_item_id');
+  if (rawItemId) return `source:${rawItemId}`;
+  return `${node.type}:${node.label.slice(0, 24).toLowerCase()}`;
+}
+
 function NodeLabel({ label, type }: { label: string; type: string }) {
   const theme = nodeTheme(type);
   const Icon = theme.icon;
@@ -248,4 +315,14 @@ function nodeTheme(type: string): { background: string; border: string; badgeBac
     entity: { background: '#f5f3ff', border: '#ddd6fe', badgeBackground: '#ede9fe', accent: '#6d28d9', icon: GitBranch }
   };
   return themes[type] ?? { background: '#ffffff', border: '#cbd5e1', badgeBackground: '#f1f5f9', accent: '#475569', icon: Box };
+}
+
+function stringMetadata(node: GraphNode, key: string) {
+  const value = node.metadata[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function arrayMetadata(node: GraphNode, key: string) {
+  const value = node.metadata[key];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }

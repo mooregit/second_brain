@@ -3,7 +3,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.database import Base
-from app.api.routes.graph import LabelDelete, LabelRename, TagRename, delete_label, delete_tag, rename_label, rename_tag
+from app.api.routes.graph import (
+    LabelDelete,
+    LabelRename,
+    ManualRelationshipCreate,
+    TagRename,
+    create_manual_relationship,
+    delete_label,
+    delete_tag,
+    rename_label,
+    rename_tag,
+)
 from app.models import EmailMessage, Embedding, Idea, Memory, OpenQuestion, Project, RawItem, Relationship, Tag, Task
 from app.services.graph_service import GraphService
 from app.services.retrieval_service import RetrievalService
@@ -348,6 +358,30 @@ def test_graph_cleanup_deletes_entity_label_relationships(db_session: Session) -
 
     assert result["deleted"] == 1
     assert db_session.get(Relationship, relationship.id) is None
+
+
+def test_create_manual_relationship_adds_traceable_graph_edge(db_session: Session) -> None:
+    result = create_manual_relationship(
+        ManualRelationshipCreate(
+            source_label="Orphan card",
+            source_node_type="entity",
+            target_label="Workflow Imagination",
+            target_node_type="project",
+            relationship_type="belongs_to",
+        ),
+        db_session,
+    )
+
+    relationship = db_session.get(Relationship, result["id"])
+    graph = GraphService(db_session).build()
+    edge_pairs = {(edge.source, edge.target, edge.relationship_type) for edge in graph.edges}
+
+    assert relationship is not None
+    assert relationship.source_label == "Orphan card"
+    assert relationship.target_label == "Workflow Imagination"
+    assert relationship.relationship_type == "belongs_to"
+    assert any(node.label == "Orphan card" for node in graph.nodes)
+    assert ("entity:orphan-card", "project:workflow-imagination", "belongs_to") in edge_pairs
 
 
 def _memory(db_session: Session) -> tuple[Memory, RawItem]:

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { Archive, ExternalLink, Loader2, Save, Search, Trash2, X } from 'lucide-react';
-import { deleteGraphLabel, deleteGraphTag, GraphNode, getGraph, renameGraphLabel, renameGraphTag } from '../api/graph';
+import { createGraphRelationship, deleteGraphLabel, deleteGraphTag, GraphNode, getGraph, renameGraphLabel, renameGraphTag } from '../api/graph';
 import { deleteDecision, deleteIdea, deleteQuestion, deleteTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
 import { deleteProject, patchProject } from '../api/views';
 import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
@@ -17,7 +17,7 @@ export default function Graph() {
   const [showTags, setShowTags] = useState(true);
   const [showEntities, setShowEntities] = useState(false);
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('project');
+  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('cluster');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,6 +28,9 @@ export default function Graph() {
   const [relationshipTypeFilter, setRelationshipTypeFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
+  const [relationshipTargetId, setRelationshipTargetId] = useState('');
+  const [manualRelationshipType, setManualRelationshipType] = useState('related_to');
+  const [manualRelationshipDirection, setManualRelationshipDirection] = useState<'out' | 'in'>('out');
   const graph = useQuery({ queryKey: ['graph', showArchived], queryFn: () => getGraph(showArchived) });
   const selectedNode = graph.data?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const editMutation = useMutation({
@@ -39,6 +42,15 @@ export default function Graph() {
     onSuccess: () => {
       setSelectedNodeId(null);
       setLabelDraft('');
+      invalidateGraphData(queryClient);
+    }
+  });
+  const relationshipMutation = useMutation({
+    mutationFn: createGraphRelationship,
+    onSuccess: () => {
+      setRelationshipTargetId('');
+      setManualRelationshipType('related_to');
+      setManualRelationshipDirection('out');
       invalidateGraphData(queryClient);
     }
   });
@@ -75,6 +87,7 @@ export default function Graph() {
     const node = graph.data?.nodes.find((candidate) => candidate.id === nodeId);
     setSelectedNodeId(nodeId);
     setLabelDraft(node?.label ?? '');
+    setRelationshipTargetId('');
     if (nodeId) setSearchMessage('');
   }
 
@@ -182,6 +195,7 @@ export default function Graph() {
             value={layoutMode}
             onChange={(event) => setLayoutMode(event.target.value as GraphLayoutMode)}
           >
+            <option value="cluster">Cluster map</option>
             <option value="project">Project map</option>
             <option value="source">Source map</option>
             <option value="task">Task map</option>
@@ -257,7 +271,15 @@ export default function Graph() {
           setLabelDraft={setLabelDraft}
           isSaving={editMutation.isPending}
           isCleaning={cleanupMutation.isPending}
+          isAttaching={relationshipMutation.isPending}
           projectOptions={projectOptions}
+          graphNodes={graph.data?.nodes ?? []}
+          relationshipTargetId={relationshipTargetId}
+          setRelationshipTargetId={setRelationshipTargetId}
+          manualRelationshipType={manualRelationshipType}
+          setManualRelationshipType={setManualRelationshipType}
+          manualRelationshipDirection={manualRelationshipDirection}
+          setManualRelationshipDirection={setManualRelationshipDirection}
           onSave={() => {
             if (selectedNode && labelDraft.trim()) editMutation.mutate({ node: selectedNode, label: labelDraft.trim() });
           }}
@@ -272,10 +294,25 @@ export default function Graph() {
           onReassign={(projectId) => {
             if (selectedNode) cleanupMutation.mutate({ kind: 'reassign', node: selectedNode, projectId });
           }}
+          onAttach={() => {
+            if (!selectedNode || !graph.data || !relationshipTargetId) return;
+            const targetNode = graph.data.nodes.find((candidate) => candidate.id === relationshipTargetId);
+            if (!targetNode) return;
+            const source = manualRelationshipDirection === 'out' ? selectedNode : targetNode;
+            const target = manualRelationshipDirection === 'out' ? targetNode : selectedNode;
+            relationshipMutation.mutate({
+              source_label: source.label,
+              source_node_type: source.type,
+              target_label: target.label,
+              target_node_type: target.type,
+              relationship_type: manualRelationshipType.trim() || 'related_to'
+            });
+          }}
         />
       </div>
       {graph.error && <p className="text-sm text-red-700">{graph.error.message}</p>}
       {editMutation.error && <p className="text-sm text-red-700">{editMutation.error.message}</p>}
+      {relationshipMutation.error && <p className="text-sm text-red-700">{relationshipMutation.error.message}</p>}
     </section>
   );
 }
@@ -309,22 +346,40 @@ function GraphDetailDrawer({
   setLabelDraft,
   isSaving,
   isCleaning,
+  isAttaching,
   projectOptions,
+  graphNodes,
+  relationshipTargetId,
+  setRelationshipTargetId,
+  manualRelationshipType,
+  setManualRelationshipType,
+  manualRelationshipDirection,
+  setManualRelationshipDirection,
   onSave,
   onArchive,
   onDelete,
-  onReassign
+  onReassign,
+  onAttach
 }: {
   node: GraphNode | null;
   labelDraft: string;
   setLabelDraft: (value: string) => void;
   isSaving: boolean;
   isCleaning: boolean;
+  isAttaching: boolean;
   projectOptions: { id: string; label: string }[];
+  graphNodes: GraphNode[];
+  relationshipTargetId: string;
+  setRelationshipTargetId: (value: string) => void;
+  manualRelationshipType: string;
+  setManualRelationshipType: (value: string) => void;
+  manualRelationshipDirection: 'out' | 'in';
+  setManualRelationshipDirection: (value: 'out' | 'in') => void;
   onSave: () => void;
   onArchive: () => void;
   onDelete: () => void;
   onReassign: (projectId: string | null) => void;
+  onAttach: () => void;
 }) {
   if (!node) {
     return (
@@ -441,6 +496,59 @@ function GraphDetailDrawer({
           )}
         </div>
       )}
+      <div className="mt-4 border-t border-slate-100 pt-4">
+        <div className="text-sm font-medium text-slate-800">Create Relationship</div>
+        <label className="mt-2 block text-xs font-medium text-slate-600">
+          Target node
+          <select
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+            value={relationshipTargetId}
+            disabled={isAttaching}
+            onChange={(event) => setRelationshipTargetId(event.target.value)}
+          >
+            <option value="">Select a node...</option>
+            {graphNodes
+              .filter((candidate) => candidate.id !== node.id)
+              .sort((left, right) => left.label.localeCompare(right.label))
+              .map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.label} ({candidate.type})
+                </option>
+              ))}
+          </select>
+        </label>
+        <label className="mt-2 block text-xs font-medium text-slate-600">
+          Relationship
+          <input
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+            value={manualRelationshipType}
+            disabled={isAttaching}
+            onChange={(event) => setManualRelationshipType(event.target.value)}
+            placeholder="related_to"
+          />
+        </label>
+        <label className="mt-2 block text-xs font-medium text-slate-600">
+          Direction
+          <select
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
+            value={manualRelationshipDirection}
+            disabled={isAttaching}
+            onChange={(event) => setManualRelationshipDirection(event.target.value as 'out' | 'in')}
+          >
+            <option value="out">Selected node to target</option>
+            <option value="in">Target to selected node</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={onAttach}
+          disabled={isAttaching || !relationshipTargetId || !manualRelationshipType.trim()}
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {isAttaching ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          Attach node
+        </button>
+      </div>
       {rawItemId && (
         <Link className="mt-3 inline-flex items-center gap-2 text-sm text-sky-700 underline-offset-2 hover:underline" to={`/items/${rawItemId}`}>
           <ExternalLink size={14} />

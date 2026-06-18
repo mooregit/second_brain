@@ -66,9 +66,11 @@
 - [x] Add graph search that can find and focus a node by label.
 - [x] Highlight selected node neighbors and dim unrelated graph nodes.
 - [x] Add graph layout modes for project map, source map, task map, and entity map.
+- [x] Add a D3 force-powered cluster map that can grow in all directions and group similar/connected topics.
 - [x] Show edge labels on hover or selected-node focus instead of always relying on full graph labels.
 - [x] Add clearer node type styling with restrained colors/icons for projects, tasks, questions, ideas, decisions, tags, sources, and entities.
 - [x] Add graph cleanup tools for merging duplicate nodes, renaming tags/entities, reassigning records to projects, and archiving/deleting from the graph.
+- [x] Add manual graph attachment controls for creating relationships between orphaned nodes/cards and projects or other nodes.
 - [x] Add a source trace toggle so source email/note/file nodes can be shown for audit mode and hidden for daily use.
 
 ## Phase 6: File And Folder Inputs

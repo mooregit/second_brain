@@ -35,3 +35,16 @@ export function deleteGraphLabel(nodeType: 'entity' | 'person', label: string) {
     body: JSON.stringify({ node_type: nodeType, label })
   });
 }
+
+export function createGraphRelationship(payload: {
+  source_label: string;
+  source_node_type: string;
+  target_label: string;
+  target_node_type: string;
+  relationship_type: string;
+}) {
+  return api<{ status: string; id: string; raw_item_id: string; memory_id: string }>('/graph/relationships', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
