@@ -45,6 +45,7 @@ Prioritize connectors that fit the local-first model and create `RawItem`, optio
 
 - Markdown folders, Obsidian, Logseq, and plain `.md` note folders.
 - Local files: `.txt`, `.md`, `.html`, `.csv`, `.json`, PDFs, and ebooks.
+- Whole-book ingestion for PDFs/EPUBs with document metadata, chapter/page/section chunking, per-chunk embeddings, staged concept extraction, and source-linked notes.
 - Apple Notes/iCloud Notes through export-to-folder or share-to-email workflows.
 - Google Drive, Google Docs, Google Calendar, and Google Sheets.
 - Notion pages and databases through the official Notion API.

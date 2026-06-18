@@ -164,6 +164,7 @@
 - [ ] Add meeting transcript import for Zoom, Google Meet, Otter, Fireflies, Granola, and similar exports.
 - [x] Add PDF import with text extraction first, OCR later.
 - [ ] Add ebook import with text extraction first.
+- [ ] Add long-document/book ingestion with document metadata, section/chapter/page chunking, per-chunk embeddings, staged extraction, and source-linked book notes.
 - [ ] Add OCR for scanned PDFs/images later.
 - [ ] Add Google Sheets import for selected spreadsheets and CSV-like tables.
 - [ ] Add Excel import for `.xlsx` and `.csv` files.
