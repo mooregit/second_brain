@@ -49,7 +49,7 @@
 - [x] Add `POST /ask`.
 - [x] Build Ask page with answer and source links.
 - [x] Add deterministic tests for empty-context answers.
-- [ ] Add deterministic tests for retrieved-source answers.
+- [x] Add deterministic tests for retrieved-source answers.
 
 ## Phase 5: Graph View
 

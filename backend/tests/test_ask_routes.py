@@ -78,3 +78,43 @@ def test_ask_returns_insufficient_context_without_calling_llm(db_session: Sessio
     assert stored.question == "What do I know about BetRight?"
     assert stored.answer == response.answer
     assert stored.sources_json == []
+
+
+def test_ask_returns_answer_and_sources_from_retrieved_context(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured = {}
+    matches = [
+        {
+            "owner_type": "task",
+            "owner_id": "task-1",
+            "score": 0.91,
+            "title": "BetRight injury note",
+            "raw_item_id": "raw-1",
+            "text": "Task: Add injury classification for BetRight\nStatus: open",
+        }
+    ]
+
+    async def fake_retrieve(self: RetrievalService, question: str, limit: int = 6) -> list[dict]:
+        captured["question"] = question
+        return matches
+
+    async def fake_generate(self: OllamaClient, model: str, prompt: str) -> str:
+        captured["model"] = model
+        captured["prompt"] = prompt
+        return "Your open BetRight task is to add injury classification."
+
+    monkeypatch.setattr(RetrievalService, "retrieve", fake_retrieve)
+    monkeypatch.setattr(OllamaClient, "generate", fake_generate)
+
+    response = asyncio.run(AskService(db_session).ask("What are my open BetRight tasks?"))
+
+    assert captured["question"] == "What are my open BetRight tasks?"
+    assert "Add injury classification for BetRight" in captured["prompt"]
+    assert response.answer == "Your open BetRight task is to add injury classification."
+    assert len(response.sources) == 1
+    assert response.sources[0].owner_type == "task"
+    assert response.sources[0].owner_id == "task-1"
+    assert response.sources[0].raw_item_id == "raw-1"
+    assert response.sources[0].title == "BetRight injury note"
+    stored = db_session.get(AskRun, response.ask_run_id)
+    assert stored is not None
+    assert stored.sources_json[0]["owner_id"] == "task-1"
