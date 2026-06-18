@@ -74,9 +74,9 @@
 ## Phase 6: File And Folder Inputs
 
 - [x] Add basic `POST /items/upload` for UTF-8 text.
-- [ ] Store uploaded files in `data/uploads`.
-- [ ] Create `FileAsset` rows with source path and metadata.
-- [ ] Support `.txt` and `.md` upload acceptance tests.
+- [x] Store uploaded files in `data/uploads`.
+- [x] Create `FileAsset` rows with source path and metadata.
+- [x] Support `.txt` and `.md` upload acceptance tests.
 - [ ] Add folder watcher for `data/inbox`.
 - [ ] Convert dropped `.txt` or `.md` inbox files into raw items.
 - [ ] Add a "Ways to bring in data" section near the Inbox with supported and planned import paths.

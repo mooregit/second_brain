@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     gmail_credentials_path: str = "../data/gmail/credentials.json"
     gmail_token_path: str = "../data/gmail/token.json"
     gmail_oauth_port: int = 8090
+    uploads_folder: str = "../data/uploads"
     media_artifacts_folder: str = "../data/media"
     media_transcription_backend: str = "faster-whisper"
     media_transcription_model: str = "base"

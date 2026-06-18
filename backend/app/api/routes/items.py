@@ -24,18 +24,25 @@ def create_manual_item(payload: ManualItemCreate, db: Session = Depends(get_db))
 @router.post("/upload", response_model=RawItemOut)
 async def upload_item(file: UploadFile = File(...), db: Session = Depends(get_db)) -> RawItem:
     content = await file.read()
+    filename = file.filename or "upload.txt"
+    content_type = file.content_type or "text/plain"
     try:
         body_text = content.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise HTTPException(status_code=400, detail="Only UTF-8 text uploads are supported in the MVP") from exc
     item = RawItem(
         source_type="upload",
-        title=file.filename or "Uploaded text",
+        title=filename,
         body_text=body_text,
-        content_type=file.content_type or "text/plain",
-        source_uri=file.filename,
+        content_type=content_type,
+        source_uri=filename,
+        metadata_json={"filename": filename},
     )
     db.add(item)
+    db.flush()
+    asset = FileService(db).store_upload(item.id, filename, content, content_type)
+    item.source_uri = asset.stored_path
+    item.metadata_json = {"filename": filename, "stored_path": asset.stored_path, "sha256": asset.sha256}
     db.commit()
     db.refresh(item)
     return item
