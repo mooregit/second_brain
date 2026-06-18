@@ -39,7 +39,7 @@
 - [x] Add editable open question fields in `ExtractionReview`.
 - [x] Add source links for every extracted child record in review UI.
 - [x] Add edit/delete/archive controls for memories, projects, tasks, ideas, decisions, and questions from their native pages.
-- [ ] Add project reassignment controls for tasks, ideas, decisions, and questions outside the graph drawer.
+- [x] Add project reassignment controls for tasks, ideas, decisions, and questions outside the graph drawer.
 
 ## Phase 4: Ask Interface
 

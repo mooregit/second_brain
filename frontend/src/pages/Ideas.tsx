@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Check, Pencil, Trash2, X } from 'lucide-react';
-import { Idea, listIdeas } from '../api/views';
+import { Idea, listIdeas, listProjects } from '../api/views';
 import { deleteIdea, patchIdea } from '../api/review';
 import SourceLink from '../components/SourceLink';
 
 export default function Ideas() {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ body: '', status: 'active' });
+  const [draft, setDraft] = useState({ body: '', status: 'active', project_id: '' });
   const ideas = useQuery({ queryKey: ['ideas'], queryFn: listIdeas });
+  const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects });
   const patchMutation = useMutation({
     mutationFn: ({ ideaId, payload }: { ideaId: string; payload: typeof draft }) =>
-      patchIdea(ideaId, { body: payload.body.trim(), status: payload.status }),
+      patchIdea(ideaId, { body: payload.body.trim(), status: payload.status, project_id: payload.project_id || null }),
     onSuccess: () => {
       setEditingId(null);
       invalidate();
@@ -24,11 +25,12 @@ export default function Ideas() {
     queryClient.invalidateQueries({ queryKey: ['ideas'] });
     queryClient.invalidateQueries({ queryKey: ['memories'] });
     queryClient.invalidateQueries({ queryKey: ['graph'] });
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
   }
 
   function startEdit(idea: Idea) {
     setEditingId(idea.id);
-    setDraft({ body: idea.body, status: idea.status });
+    setDraft({ body: idea.body, status: idea.status, project_id: idea.project_id ?? '' });
   }
 
   return (
@@ -45,6 +47,12 @@ export default function Ideas() {
                     <select className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
                       <option value="active">Active</option>
                       <option value="archived">Archived</option>
+                    </select>
+                    <select className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={draft.project_id} onChange={(event) => setDraft({ ...draft, project_id: event.target.value })}>
+                      <option value="">No project</option>
+                      {projects.data?.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
                     </select>
                   </div>
                 ) : (

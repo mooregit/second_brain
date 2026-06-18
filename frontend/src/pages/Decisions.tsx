@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
-import { Decision, listDecisions } from '../api/views';
+import { Decision, listDecisions, listProjects } from '../api/views';
 import { deleteDecision, patchDecision } from '../api/review';
 import SourceLink from '../components/SourceLink';
 
 export default function Decisions() {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ title: '', rationale: '', confidence: 0 });
+  const [draft, setDraft] = useState({ title: '', rationale: '', confidence: 0, project_id: '' });
   const decisions = useQuery({ queryKey: ['decisions'], queryFn: listDecisions });
+  const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects });
   const patchMutation = useMutation({
     mutationFn: ({ decisionId, payload }: { decisionId: string; payload: typeof draft }) =>
       patchDecision(decisionId, {
         title: payload.title.trim(),
         rationale: payload.rationale.trim() || null,
-        confidence: payload.confidence
+        confidence: payload.confidence,
+        project_id: payload.project_id || null
       }),
     onSuccess: () => {
       setEditingId(null);
@@ -28,11 +30,12 @@ export default function Decisions() {
     queryClient.invalidateQueries({ queryKey: ['decisions'] });
     queryClient.invalidateQueries({ queryKey: ['memories'] });
     queryClient.invalidateQueries({ queryKey: ['graph'] });
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
   }
 
   function startEdit(decision: Decision) {
     setEditingId(decision.id);
-    setDraft({ title: decision.title, rationale: decision.rationale ?? '', confidence: decision.confidence });
+    setDraft({ title: decision.title, rationale: decision.rationale ?? '', confidence: decision.confidence, project_id: decision.project_id ?? '' });
   }
 
   return (
@@ -48,6 +51,12 @@ export default function Decisions() {
                     <input className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm font-medium" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} />
                     <textarea className="h-20 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={draft.rationale} onChange={(event) => setDraft({ ...draft, rationale: event.target.value })} />
                     <input className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" type="number" min="0" max="1" step="0.05" value={draft.confidence} onChange={(event) => setDraft({ ...draft, confidence: Number(event.target.value) })} />
+                    <select className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={draft.project_id} onChange={(event) => setDraft({ ...draft, project_id: event.target.value })}>
+                      <option value="">No project</option>
+                      {projects.data?.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
+                    </select>
                   </div>
                 ) : (
                   <>

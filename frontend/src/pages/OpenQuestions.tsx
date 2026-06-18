@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Check, Pencil, Trash2, X } from 'lucide-react';
-import { OpenQuestion, listOpenQuestions } from '../api/views';
+import { OpenQuestion, listOpenQuestions, listProjects } from '../api/views';
 import { deleteQuestion, patchQuestion } from '../api/review';
 import SourceLink from '../components/SourceLink';
 
@@ -9,11 +9,12 @@ export default function OpenQuestions() {
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ question: '', status: 'open' });
+  const [draft, setDraft] = useState({ question: '', status: 'open', project_id: '' });
   const questions = useQuery({ queryKey: ['open-questions', showArchived], queryFn: () => listOpenQuestions(showArchived) });
+  const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects });
   const patchMutation = useMutation({
     mutationFn: ({ questionId, payload }: { questionId: string; payload: typeof draft }) =>
-      patchQuestion(questionId, { question: payload.question.trim(), status: payload.status }),
+      patchQuestion(questionId, { question: payload.question.trim(), status: payload.status, project_id: payload.project_id || null }),
     onSuccess: () => {
       setEditingId(null);
       invalidate();
@@ -25,11 +26,12 @@ export default function OpenQuestions() {
     queryClient.invalidateQueries({ queryKey: ['open-questions'] });
     queryClient.invalidateQueries({ queryKey: ['memories'] });
     queryClient.invalidateQueries({ queryKey: ['graph'] });
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
   }
 
   function startEdit(question: OpenQuestion) {
     setEditingId(question.id);
-    setDraft({ question: question.question, status: question.status });
+    setDraft({ question: question.question, status: question.status, project_id: question.project_id ?? '' });
   }
 
   return (
@@ -53,6 +55,12 @@ export default function OpenQuestions() {
                       <option value="open">Open</option>
                       <option value="answered">Answered</option>
                       <option value="archived">Archived</option>
+                    </select>
+                    <select className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={draft.project_id} onChange={(event) => setDraft({ ...draft, project_id: event.target.value })}>
+                      <option value="">No project</option>
+                      {projects.data?.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
                     </select>
                   </div>
                 ) : (

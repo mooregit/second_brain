@@ -2,22 +2,24 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Check, Pencil, Trash2, X } from 'lucide-react';
 import SourceLink from '../components/SourceLink';
-import { Task, listTasks } from '../api/views';
+import { Task, listProjects, listTasks } from '../api/views';
 import { deleteTask, patchTask } from '../api/review';
 
 export default function Tasks() {
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ title: '', description: '', priority: '', status: 'open' });
+  const [draft, setDraft] = useState({ title: '', description: '', priority: '', status: 'open', project_id: '' });
   const tasks = useQuery({ queryKey: ['tasks', showArchived], queryFn: () => listTasks(showArchived) });
+  const projects = useQuery({ queryKey: ['projects'], queryFn: listProjects });
   const patchMutation = useMutation({
     mutationFn: ({ taskId, payload }: { taskId: string; payload: typeof draft }) =>
       patchTask(taskId, {
         title: payload.title.trim(),
         description: payload.description.trim() || null,
         priority: payload.priority || null,
-        status: payload.status
+        status: payload.status,
+        project_id: payload.project_id || null
       }),
     onSuccess: () => {
       setEditingId(null);
@@ -30,11 +32,12 @@ export default function Tasks() {
     queryClient.invalidateQueries({ queryKey: ['tasks'] });
     queryClient.invalidateQueries({ queryKey: ['graph'] });
     queryClient.invalidateQueries({ queryKey: ['memories'] });
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
   }
 
   function startEdit(task: Task) {
     setEditingId(task.id);
-    setDraft({ title: task.title, description: task.description ?? '', priority: task.priority ?? '', status: task.status });
+    setDraft({ title: task.title, description: task.description ?? '', priority: task.priority ?? '', status: task.status, project_id: task.project_id ?? '' });
   }
 
   return (
@@ -69,6 +72,12 @@ export default function Tasks() {
                         <option value="high">High</option>
                       </select>
                     </div>
+                    <select className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={draft.project_id} onChange={(event) => setDraft({ ...draft, project_id: event.target.value })}>
+                      <option value="">No project</option>
+                      {projects.data?.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
+                    </select>
                   </div>
                 ) : (
                   <>
