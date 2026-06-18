@@ -1,0 +1,1 @@
+Need to add injury classification to BetRight. Could use ESPN blurbs and categorize as minor, serious, questionable, out. Also need to check if this affects player prop projections. Maybe use local LLM first.

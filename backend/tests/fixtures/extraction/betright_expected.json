@@ -1,0 +1,36 @@
+{
+  "summary": "BetRight needs injury classification for ESPN injury blurbs, with an open question about player prop projection impact.",
+  "memory_type": "task",
+  "projects": ["BetRight"],
+  "people": [],
+  "tasks": [
+    {
+      "title": "Add injury classification for BetRight",
+      "description": "Categorize ESPN injury blurbs as minor, serious, questionable, or out.",
+      "priority": "medium",
+      "due_date": null,
+      "status": "open"
+    },
+    {
+      "title": "Check whether injury classification affects player prop projections",
+      "description": null,
+      "priority": "medium",
+      "due_date": null,
+      "status": "open"
+    }
+  ],
+  "ideas": ["Use a local LLM to categorize ESPN injury blurbs"],
+  "decisions": [],
+  "open_questions": ["Should injury status directly adjust player prop projections?"],
+  "tags": ["BetRight", "injuries", "local-llm"],
+  "entities": ["ESPN injury blurbs", "player prop projections", "injury classification"],
+  "relationships": [
+    {
+      "source": "injury classification",
+      "target": "player prop projections",
+      "relationship": "may_affect"
+    }
+  ],
+  "suggested_actions": ["Review whether categorized injury status should feed projection logic"],
+  "confidence": 0.78
+}

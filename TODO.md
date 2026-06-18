@@ -24,7 +24,7 @@
 - [x] Add `POST /items/{id}/process`.
 - [x] Store `ProcessingRun`, `Memory`, `Project`, `Task`, `Idea`, `OpenQuestion`, `Tag`, and `Relationship`.
 - [x] Add `Person` upsert from extraction output.
-- [ ] Add explicit extraction test fixture for the BetRight note.
+- [x] Add explicit extraction test fixture for the BetRight note.
 
 ## Phase 3: Review UI
 
