@@ -19,6 +19,7 @@ export default function GraphCanvas({
   graph,
   visibleTypes,
   visibleNodeIds,
+  relationshipTypeFilter,
   showEdgeLabels,
   selectedNodeId,
   onNodeSelect
@@ -26,6 +27,7 @@ export default function GraphCanvas({
   graph: GraphResponse;
   visibleTypes?: Set<string>;
   visibleNodeIds?: Set<string>;
+  relationshipTypeFilter?: string;
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
@@ -36,6 +38,7 @@ export default function GraphCanvas({
         graph={graph}
         visibleTypes={visibleTypes}
         visibleNodeIds={visibleNodeIds}
+        relationshipTypeFilter={relationshipTypeFilter}
         showEdgeLabels={showEdgeLabels}
         selectedNodeId={selectedNodeId}
         onNodeSelect={onNodeSelect}
@@ -48,6 +51,7 @@ function GraphCanvasInner({
   graph,
   visibleTypes,
   visibleNodeIds,
+  relationshipTypeFilter,
   showEdgeLabels,
   selectedNodeId,
   onNodeSelect
@@ -55,6 +59,7 @@ function GraphCanvasInner({
   graph: GraphResponse;
   visibleTypes?: Set<string>;
   visibleNodeIds?: Set<string>;
+  relationshipTypeFilter?: string;
   showEdgeLabels?: boolean;
   selectedNodeId?: string | null;
   onNodeSelect?: (nodeId: string | null) => void;
@@ -65,7 +70,10 @@ function GraphCanvasInner({
     [graph.nodes, visibleNodeIds, visibleTypes]
   );
   const renderedNodeIds = useMemo(() => new Set(filteredNodes.map((node) => node.id)), [filteredNodes]);
-  const filteredEdges = useMemo(() => graph.edges.filter((edge) => renderedNodeIds.has(edge.source) && renderedNodeIds.has(edge.target)), [graph.edges, renderedNodeIds]);
+  const filteredEdges = useMemo(
+    () => graph.edges.filter((edge) => renderedNodeIds.has(edge.source) && renderedNodeIds.has(edge.target) && (!relationshipTypeFilter || edge.relationship_type === relationshipTypeFilter)),
+    [graph.edges, relationshipTypeFilter, renderedNodeIds]
+  );
   const relatedNodeIds = useMemo(() => {
     if (!selectedNodeId) return null;
     const ids = new Set([selectedNodeId]);

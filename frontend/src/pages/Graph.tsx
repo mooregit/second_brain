@@ -22,6 +22,7 @@ export default function Graph() {
   const [projectFilter, setProjectFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [sourceTypeFilter, setSourceTypeFilter] = useState('');
+  const [relationshipTypeFilter, setRelationshipTypeFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   const graph = useQuery({ queryKey: ['graph', showArchived], queryFn: () => getGraph(showArchived) });
@@ -50,6 +51,13 @@ export default function Graph() {
     }
     return [...sourceTypes].sort();
   }, [graph.data?.nodes]);
+  const relationshipTypeOptions = useMemo(() => {
+    const relationshipTypes = new Set<string>();
+    for (const edge of graph.data?.edges ?? []) {
+      if (edge.relationship_type) relationshipTypes.add(edge.relationship_type);
+    }
+    return [...relationshipTypes].sort();
+  }, [graph.data?.edges]);
   const visibleNodeIds = useMemo(() => {
     if (!graph.data) return new Set<string>();
     return new Set(graph.data.nodes.filter((node) => passesGraphFilters(node, { projectFilter, tagFilter, sourceTypeFilter, dateFromFilter, dateToFilter })).map((node) => node.id));
@@ -138,7 +146,7 @@ export default function Graph() {
         </button>
         {searchMessage && <div className="text-sm text-slate-500">{searchMessage}</div>}
       </div>
-      <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-5">
+      <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-6">
         <label className="block text-xs font-medium text-slate-600">
           Project
           <select className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}>
@@ -167,6 +175,15 @@ export default function Graph() {
           </select>
         </label>
         <label className="block text-xs font-medium text-slate-600">
+          Relationship
+          <select className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" value={relationshipTypeFilter} onChange={(event) => setRelationshipTypeFilter(event.target.value)}>
+            <option value="">All relationships</option>
+            {relationshipTypeOptions.map((relationshipType) => (
+              <option key={relationshipType} value={relationshipType}>{relationshipType}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-xs font-medium text-slate-600">
           From
           <input className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} />
         </label>
@@ -181,6 +198,7 @@ export default function Graph() {
             graph={graph.data}
             visibleTypes={visibleTypes}
             visibleNodeIds={visibleNodeIds}
+            relationshipTypeFilter={relationshipTypeFilter}
             showEdgeLabels={showEdgeLabels}
             selectedNodeId={selectedNodeId}
             onNodeSelect={selectNode}

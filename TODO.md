@@ -59,7 +59,7 @@
 - [x] Show projects, tasks, ideas, questions, tags, entities, and relationships.
 - [x] Add graph filters for project, tag, source type, and date range.
 - [x] Add graph filters for node type.
-- [ ] Add graph filters for relationship type.
+- [x] Add graph filters for relationship type.
 - [x] Improve graph layout so projects, work items, tags, and extracted entities are visually grouped.
 - [ ] Make graph node clicks open source/detail pages.
 - [x] Add a graph node detail drawer with type, source item, summary/body, project, status, tags, and edit controls.
