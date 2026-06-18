@@ -7,12 +7,13 @@ import { deleteDecision, deleteIdea, deleteQuestion, deleteTask, patchDecision, 
 import { deleteProject, patchProject } from '../api/views';
 import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
 
-const defaultTypes = ['project', 'source', 'task', 'idea', 'decision', 'question'];
+const defaultTypes = ['project', 'task', 'idea', 'decision', 'question'];
 
 export default function Graph() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showArchived, setShowArchived] = useState(false);
+  const [showSources, setShowSources] = useState(false);
   const [showTags, setShowTags] = useState(true);
   const [showEntities, setShowEntities] = useState(false);
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
@@ -43,6 +44,7 @@ export default function Graph() {
   });
   const visibleTypes = new Set([
     ...defaultTypes,
+    ...(showSources ? ['source'] : []),
     ...(showTags ? ['tag'] : []),
     ...(showEntities ? ['entity', 'person'] : [])
   ]);
@@ -118,6 +120,10 @@ export default function Graph() {
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
             Show archived
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={showSources} onChange={(event) => setShowSources(event.target.checked)} />
+            Source trace
           </label>
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={showTags} onChange={(event) => setShowTags(event.target.checked)} />
