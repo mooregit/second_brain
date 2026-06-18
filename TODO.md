@@ -48,7 +48,7 @@
 - [x] Add retrieval service with cosine similarity in Python.
 - [x] Add `POST /ask`.
 - [x] Build Ask page with answer and source links.
-- [ ] Add deterministic tests for empty-context answers.
+- [x] Add deterministic tests for empty-context answers.
 - [ ] Add deterministic tests for retrieved-source answers.
 
 ## Phase 5: Graph View
