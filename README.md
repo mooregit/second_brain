@@ -69,7 +69,7 @@ Then open:
 - App: http://secondbrain
 - Backend health: http://secondbrain/health
 
-See [Local Setup By Platform](#local-setup-by-platform) for Linux, macOS, and Windows details.
+See [Install And Run By Platform](#install-and-run-by-platform) for Linux, macOS, and Windows details.
 
 ## Stack
 
@@ -160,13 +160,13 @@ ollama list
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
 - [Roadmap](docs/ROADMAP.md)
 
-## Local Setup By Platform
+## Install And Run By Platform
 
 The recommended local setup is Docker Compose for the app/database plus Ollama running on the host machine. Docker starts Postgres, applies Alembic migrations, starts the FastAPI backend, starts the Vite frontend, and exposes the app through nginx at `http://secondbrain`.
 
 ### Linux
 
-1. Install Docker, Docker Compose, Git, and curl.
+1. Install Git, Docker, Docker Compose, and curl.
 
    Ubuntu/Debian:
 
@@ -179,7 +179,11 @@ The recommended local setup is Docker Compose for the app/database plus Ollama r
    docker compose version
    ```
 
-2. Install Ollama from the official installer, then pull the local models.
+   If Docker permission changes do not apply immediately, log out and back in or run `newgrp docker`.
+
+2. Install Ollama, then pull the local models.
+
+   Install Ollama from https://ollama.com/download or use the official Linux installer, then run:
 
    ```bash
    ollama pull qwen3:8b
@@ -230,6 +234,14 @@ The recommended local setup is Docker Compose for the app/database plus Ollama r
    - Frontend direct port: http://localhost:5174
    - Backend direct port: http://localhost:8001/health
 
+7. Verify the install.
+
+   ```bash
+   docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
+   docker compose -f docker-compose.dev.yml exec backend alembic current
+   ./scripts/check-ollama-docker.sh
+   ```
+
 ### macOS
 
 1. Install prerequisites.
@@ -274,6 +286,14 @@ The recommended local setup is Docker Compose for the app/database plus Ollama r
 
    - App: http://secondbrain
    - Backend health: http://secondbrain/health
+
+6. Verify the install.
+
+   ```bash
+   docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
+   docker compose -f docker-compose.dev.yml exec backend alembic current
+   ./scripts/check-ollama-docker.sh
+   ```
 
 ### Windows
 
@@ -320,6 +340,18 @@ Windows is easiest with Docker Desktop using the WSL 2 backend.
    - App: http://secondbrain
    - Backend health: http://secondbrain/health
 
+7. Verify the install.
+
+   In PowerShell:
+
+   ```powershell
+   docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\dx vector"
+   docker compose -f docker-compose.dev.yml exec backend alembic current
+   curl http://localhost:11434/api/tags
+   ```
+
+   The `scripts/check-ollama-docker.sh` helper is easiest from Git Bash or WSL.
+
 If port `80` is already in use on any platform, start with another web port:
 
 Linux/macOS:
@@ -337,252 +369,9 @@ docker compose -f docker-compose.dev.yml up --build
 
 Then open `http://secondbrain:8080`.
 
-### Verify A Fresh Install
+## Docker, Database, And Migrations
 
-After the app starts, verify the database, migrations, and Ollama connection:
-
-```bash
-docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
-docker compose -f docker-compose.dev.yml exec backend alembic current
-./scripts/check-ollama-docker.sh
-```
-
-On Windows, run the Docker commands in PowerShell. The `check-ollama-docker.sh` helper is easiest from Git Bash or WSL. If you do not use Git Bash/WSL, check Ollama directly with:
-
-```powershell
-curl http://localhost:11434/api/tags
-```
-
-## Install From Scratch
-
-1. Install system prerequisites.
-
-   Ubuntu:
-
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y git docker.io docker-compose-v2 curl
-   sudo usermod -aG docker "$USER"
-   newgrp docker
-   docker --version
-   docker compose version
-   ```
-
-2. Install and start Ollama.
-
-   Follow the Ollama install instructions for your OS, then pull the local models:
-
-   ```bash
-   ollama pull qwen3:8b
-   ollama pull nomic-embed-text
-   ```
-
-   Ollama runs on the host at `http://localhost:11434`. In Docker Compose, the backend reaches that host service through `http://host.docker.internal:11434`.
-
-   On Linux, if the backend reports `Ollama extraction failed: All connection attempts failed`, configure Ollama to listen on all interfaces for Docker:
-
-   ```bash
-   sudo systemctl edit ollama
-   ```
-
-   Add:
-
-   ```ini
-   [Service]
-   Environment="OLLAMA_HOST=0.0.0.0:11434"
-   ```
-
-   Then restart Ollama:
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart ollama
-   ```
-
-3. Clone the project.
-
-   ```bash
-   git clone git@github.com:mooregit/second_brain.git
-   cd second_brain
-   ```
-
-   HTTPS clone also works:
-
-   ```bash
-   git clone https://github.com/mooregit/second_brain.git
-   cd second_brain
-   ```
-
-4. Create local environment overrides if needed.
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   The default Docker setup uses:
-
-   ```env
-   POSTGRES_DB=second_brain
-   POSTGRES_USER=secondbrain
-   POSTGRES_PASSWORD=secondbrain
-   BACKEND_PORT=8001
-   FRONTEND_PORT=5174
-   WEB_PORT=80
-   PUBLIC_API_BASE_URL=http://secondbrain/api
-   OLLAMA_BASE_URL=http://host.docker.internal:11434
-   ```
-
-5. Add the local hostname.
-
-   ```bash
-   ./scripts/setup-local-hostname.sh
-   ```
-
-   This adds the following line to `/etc/hosts`:
-
-   ```text
-   127.0.0.1 secondbrain
-   ```
-
-6. Start the full app.
-
-   ```bash
-   docker compose -f docker-compose.dev.yml up --build
-   ```
-
-7. Open the app.
-
-   - App: http://secondbrain
-   - Frontend direct port: http://localhost:5174
-   - Backend health: http://localhost:8001/health
-   - Backend through proxy: http://secondbrain/health
-
-8. Verify database setup.
-
-   ```bash
-   docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
-   docker compose -f docker-compose.dev.yml exec backend alembic current
-   ```
-
-9. Verify Ollama connectivity from Docker.
-
-   ```bash
-   ./scripts/check-ollama-docker.sh
-   ```
-
-   If the script says Docker Compose is not accessible, refresh Docker group membership:
-
-   ```bash
-   newgrp docker
-   ```
-
-   If needed, add your user to the Docker group and log out/in:
-
-   ```bash
-   sudo usermod -aG docker "$USER"
-   ```
-
-If ports are already in use, override them:
-
-```bash
-BACKEND_PORT=8002 FRONTEND_PORT=5175 WEB_PORT=8080 docker compose -f docker-compose.dev.yml up --build
-```
-
-If `WEB_PORT` is not `80`, open `http://secondbrain:<WEB_PORT>`.
-
-## Platform Notes
-
-### macOS
-
-Install prerequisites:
-
-- Install Docker Desktop for Mac and make sure it is running.
-- Install Git if it is not already available.
-- Install Ollama for macOS and start it.
-
-Pull the local models:
-
-```bash
-ollama pull qwen3:8b
-ollama pull nomic-embed-text
-```
-
-Clone and start the app:
-
-```bash
-git clone https://github.com/mooregit/second_brain.git
-cd second_brain
-cp .env.example .env
-./scripts/setup-local-hostname.sh
-docker compose -f docker-compose.dev.yml up --build
-```
-
-The hostname script appends `127.0.0.1 secondbrain` to `/etc/hosts` and will ask for your macOS password through `sudo`.
-
-Open:
-
-- App: http://secondbrain
-- Backend health: http://secondbrain/health
-
-### Windows
-
-Install prerequisites:
-
-- Install Docker Desktop for Windows and make sure it is running.
-- Enable WSL 2 when Docker Desktop prompts for it.
-- Install Git for Windows.
-- Install Ollama for Windows and start it.
-
-Pull the local models in PowerShell:
-
-```powershell
-ollama pull qwen3:8b
-ollama pull nomic-embed-text
-```
-
-Clone and start the app from PowerShell:
-
-```powershell
-git clone https://github.com/mooregit/second_brain.git
-cd second_brain
-copy .env.example .env
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Add the local hostname by opening PowerShell as Administrator and running:
-
-```powershell
-Add-Content -Path "$env:SystemRoot\System32\drivers\etc\hosts" -Value "127.0.0.1 secondbrain"
-```
-
-Open:
-
-- App: http://secondbrain
-- Backend health: http://secondbrain/health
-
-If port `80` is already used on Windows, start with another web port:
-
-```powershell
-$env:WEB_PORT=8080
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Then open `http://secondbrain:8080`.
-
-## Run With Docker Compose
-
-Prerequisite on Ubuntu:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y docker.io docker-compose-v2
-sudo usermod -aG docker "$USER"
-newgrp docker
-docker --version
-docker compose version
-```
-
-Start Postgres with pgvector, apply Alembic migrations, then start the FastAPI backend and Vite frontend:
+Start Postgres with pgvector, apply Alembic migrations, then start the FastAPI backend, Vite frontend, and nginx proxy:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
@@ -648,6 +437,23 @@ If an old database volume already exists from before the init script was added, 
 ```bash
 docker compose -f docker-compose.dev.yml down -v
 docker compose -f docker-compose.dev.yml up --build
+```
+
+Alembic owns schema creation and upgrades. The backend does not create tables at FastAPI startup.
+
+Common migration commands:
+
+```bash
+docker compose -f docker-compose.dev.yml exec backend alembic current
+docker compose -f docker-compose.dev.yml exec backend alembic upgrade head
+docker compose -f docker-compose.dev.yml exec backend alembic revision --autogenerate -m "describe change"
+docker compose -f docker-compose.dev.yml exec backend alembic downgrade -1
+```
+
+Migration files live in:
+
+```text
+backend/migrations/
 ```
 
 ## Gmail Import
@@ -908,7 +714,7 @@ docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_b
 docker compose -f docker-compose.dev.yml exec db psql -U secondbrain -d second_brain -c "\\dx vector"
 ```
 
-## Run Without Docker
+## Advanced: Run Without Docker
 
 Start or provide a PostgreSQL database, then set:
 
@@ -934,6 +740,14 @@ alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 ```
 
+For non-Docker Alembic work from `backend/`:
+
+```bash
+alembic current
+alembic revision --autogenerate -m "describe change"
+alembic downgrade -1
+```
+
 Frontend:
 
 ```bash
@@ -948,26 +762,3 @@ Ollama:
 ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
-
-## Database Migrations
-
-Alembic owns schema creation and upgrades. The backend no longer creates tables at FastAPI startup.
-
-Common commands:
-
-```bash
-cd backend
-source .venv/bin/activate
-alembic upgrade head
-alembic current
-alembic revision --autogenerate -m "describe change"
-alembic downgrade -1
-```
-
-Migration files live in:
-
-```text
-backend/migrations/
-```
-
-Copy `.env.example` to `.env` if you want to override defaults.
