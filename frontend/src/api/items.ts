@@ -119,5 +119,13 @@ export function getItem(id: string) {
 }
 
 export function processItem(id: string) {
-  return api<{ memory_id: string; status: string }>(`/items/${id}/process`, { method: 'POST' });
+  return api<{ run_id: string; status: string; raw_item_status: string }>(`/items/${id}/process`, { method: 'POST' });
+}
+
+export function cancelProcessingRun(id: string) {
+  return api<ProcessingRun>(`/processing-runs/${id}/cancel`, { method: 'POST' });
+}
+
+export function retryProcessingRun(id: string) {
+  return api<ProcessingRun>(`/processing-runs/${id}/retry`, { method: 'POST' });
 }

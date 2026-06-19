@@ -124,9 +124,9 @@
 
 - [x] Add a connector dashboard on the Inbox page with Manual Note, Upload File, Scan Folder, Sync Gmail, Apple Notes export, and planned connector tiles.
 - [x] Show last sync result, last error, setup status, and next action for each connector.
-- [ ] Add a processing queue with `pending`, `processing`, `processed`, and `failed` states.
-- [ ] Move long-running processing for Gmail/video/folder imports behind the processing queue.
-- [ ] Add retry, cancel, and reprocess actions for failed or stale processing jobs.
+- [x] Add a processing queue with `pending`, `processing`, `processed`, and `failed` states.
+- [x] Move long-running processing for Gmail/video/folder imports behind the processing queue.
+- [x] Add retry, cancel, and reprocess actions for failed or stale processing jobs.
 - [ ] Improve extraction diagnostics with prompt input/context, transcript context, raw model output, repaired output, validation errors, and parsed JSON.
 - [ ] Add "reprocess with edited context" from item detail.
 - [ ] Add duplicate detection for projects, tags, people, URLs, and entities.

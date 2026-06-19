@@ -87,7 +87,7 @@ export default function Settings() {
             <dt className="font-medium text-slate-600">Latest Gmail sync</dt>
             <dd>
               {settings.data.gmail_last_sync
-                ? `${settings.data.gmail_last_sync.status}: imported ${settings.data.gmail_last_sync.imported_count}, processed ${settings.data.gmail_last_sync.processed_count}, skipped ${settings.data.gmail_last_sync.skipped_count}`
+                ? `${settings.data.gmail_last_sync.status}: imported ${settings.data.gmail_last_sync.imported_count}, queued ${settings.data.gmail_last_sync.queued_count ?? 0}, skipped ${settings.data.gmail_last_sync.skipped_count}`
                 : 'none'}
             </dd>
           </dl>

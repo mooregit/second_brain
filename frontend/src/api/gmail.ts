@@ -23,6 +23,7 @@ export type GmailSyncSummary = {
   imported_count: number;
   skipped_count: number;
   processed_count: number;
+  queued_count?: number;
   failed_count: number;
   error?: string;
 };
@@ -36,10 +37,13 @@ export type GmailSyncResponse = {
   imported_count: number;
   skipped_count: number;
   processed_count: number;
+  queued_count: number;
   failed_count: number;
   imported_items: RawItem[];
   skipped_message_ids: string[];
   processed_item_ids: string[];
+  queued_item_ids: string[];
+  queued_run_ids: string[];
   failures: { raw_item_id: string; error: string }[];
 };
 

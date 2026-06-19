@@ -23,11 +23,18 @@ class ExtractionService:
         self.ollama = OllamaClient()
         self.embedding_service = EmbeddingService(db)
 
-    async def process_item(self, item: RawItem) -> Memory:
+    async def process_item(self, item: RawItem, run: ProcessingRun | None = None) -> Memory:
         item.status = "processing"
         extraction_model = self.app_settings.get_ollama_extraction_model()
-        run = ProcessingRun(raw_item_id=item.id, status="started", model=extraction_model)
-        self.db.add(run)
+        if run is None:
+            run = ProcessingRun(raw_item_id=item.id, status="processing", model=extraction_model)
+            self.db.add(run)
+        else:
+            run.status = "processing"
+            run.model = extraction_model
+            run.started_at = datetime.utcnow()
+            run.finished_at = None
+            run.error = None
         self.db.commit()
 
         media_context = MediaAnalysisService(self.db).analyze_raw_item(item)

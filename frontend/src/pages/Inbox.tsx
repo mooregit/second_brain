@@ -180,13 +180,13 @@ export default function Inbox() {
             <div>Status: {gmailStatus.data?.status ?? settings.data?.gmail_status ?? 'unknown'}</div>
             {gmailStatus.data?.last_sync && (
               <div>
-                Last sync: {gmailStatus.data.last_sync.status} · imported {gmailStatus.data.last_sync.imported_count} · processed {gmailStatus.data.last_sync.processed_count} · skipped {gmailStatus.data.last_sync.skipped_count}
+                Last sync: {gmailStatus.data.last_sync.status} · imported {gmailStatus.data.last_sync.imported_count} · queued {gmailStatus.data.last_sync.queued_count ?? 0} · skipped {gmailStatus.data.last_sync.skipped_count}
               </div>
             )}
           </div>
           {gmailMutation.data && (
             <p className="mt-2 text-sm text-slate-600">
-              Imported {gmailMutation.data.imported_count}; processed {gmailMutation.data.processed_count}; skipped {gmailMutation.data.skipped_count}; mode {gmailMutation.data.auto_process ? 'auto-process' : 'sync only'}
+              Imported {gmailMutation.data.imported_count}; queued {gmailMutation.data.queued_count}; skipped {gmailMutation.data.skipped_count}; mode {gmailMutation.data.auto_process ? 'auto-process' : 'sync only'}
             </p>
           )}
           {gmailMutation.data?.failed_count ? <p className="mt-2 text-sm text-red-700">{gmailMutation.data.failed_count} imported emails failed processing.</p> : null}
@@ -202,12 +202,12 @@ type ConnectorDashboardProps = {
     inbox_folder: string;
     gmail_query: string;
     gmail_status: string;
-    gmail_last_sync: { status: string; imported_count: number; processed_count: number; skipped_count: number; failed_count: number; error?: string | null } | null;
+    gmail_last_sync: { status: string; imported_count: number; processed_count: number; queued_count?: number; skipped_count: number; failed_count: number; error?: string | null } | null;
   };
   gmailStatus?: {
     status: string;
     query: string;
-    last_sync: { status: string; imported_count: number; processed_count: number; skipped_count: number; failed_count: number; error?: string | null } | null;
+    last_sync: { status: string; imported_count: number; processed_count: number; queued_count?: number; skipped_count: number; failed_count: number; error?: string | null } | null;
   };
   createPending: boolean;
   uploadPending: boolean;
@@ -216,7 +216,7 @@ type ConnectorDashboardProps = {
   scanResult?: { created_count: number; skipped_count: number; folder: string };
   scanError: Error | null;
   gmailPending: boolean;
-  gmailResult?: { status: string; imported_count: number; processed_count: number; skipped_count: number; failed_count: number; auto_process: boolean };
+  gmailResult?: { status: string; imported_count: number; processed_count: number; queued_count: number; skipped_count: number; failed_count: number; auto_process: boolean };
   gmailError: Error | null;
 };
 
@@ -270,9 +270,9 @@ function ConnectorDashboard(props: ConnectorDashboardProps) {
             props.gmailError
               ? props.gmailError.message
               : props.gmailResult
-                ? `Latest sync imported ${props.gmailResult.imported_count}; processed ${props.gmailResult.processed_count}; skipped ${props.gmailResult.skipped_count}.`
+                ? `Latest sync imported ${props.gmailResult.imported_count}; queued ${props.gmailResult.queued_count}; skipped ${props.gmailResult.skipped_count}.`
                 : lastGmail
-                  ? `Last sync ${lastGmail.status}: imported ${lastGmail.imported_count}; processed ${lastGmail.processed_count}; skipped ${lastGmail.skipped_count}.`
+                  ? `Last sync ${lastGmail.status}: imported ${lastGmail.imported_count}; queued ${lastGmail.queued_count ?? 0}; skipped ${lastGmail.skipped_count}.`
                   : 'Sync messages that match your Gmail query.'
           }
           nextAction={gmailStatus === 'ready' ? 'Run Sync Gmail.' : 'Check Gmail setup in Settings.'}

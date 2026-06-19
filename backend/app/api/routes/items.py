@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.models import AskRun, EmailMessage, Embedding, FileAsset, MediaArtifact, Memory, ProcessingRun, RawItem
 from app.schemas.raw_item import ManualItemCreate, RawItemOut
-from app.services.extraction_service import ExtractionService
 from app.services.file_service import FileService
+from app.services.processing_queue_service import ProcessingQueueService, process_queued_run
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -203,16 +203,16 @@ def get_item(item_id: str, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/{item_id}/process")
-async def process_item(item_id: str, db: Session = Depends(get_db)) -> dict:
+async def process_item(item_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
     item = db.get(RawItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    service = ExtractionService(db)
     try:
-        memory = await service.process_item(item)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"memory_id": memory.id, "status": item.status}
+        run = ProcessingQueueService(db).enqueue_item(item.id, force=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    background_tasks.add_task(process_queued_run, run.id)
+    return {"run_id": run.id, "status": run.status, "raw_item_status": item.status}
 
 
 def processing_run_dict(run: ProcessingRun) -> dict:

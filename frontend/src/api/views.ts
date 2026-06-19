@@ -36,6 +36,7 @@ export type Settings = {
     imported_count: number;
     skipped_count: number;
     processed_count: number;
+    queued_count?: number;
     failed_count: number;
     error?: string;
   } | null;

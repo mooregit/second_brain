@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models import EmailMessage, FileAsset, RawItem
-from app.services.extraction_service import ExtractionService
+from app.services.processing_queue_service import ProcessingQueueService
 from app.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)
@@ -49,13 +49,15 @@ class GmailService:
             imported.append(item)
 
         should_process = self.settings.get_gmail_auto_process() if auto_process is None else auto_process
-        processed: list[str] = []
+        queued: list[str] = []
+        queued_runs: list[str] = []
         failed: list[dict] = []
         if should_process:
             for item in imported:
                 try:
-                    await ExtractionService(self.db).process_item(item)
-                    processed.append(item.id)
+                    run = ProcessingQueueService(self.db).enqueue_item(item.id)
+                    queued.append(item.id)
+                    queued_runs.append(run.id)
                 except Exception as exc:
                     failed.append({"raw_item_id": item.id, "error": str(exc)})
 
@@ -67,11 +69,14 @@ class GmailService:
             "synced_at": datetime.now(timezone.utc).isoformat(),
             "imported_count": len(imported),
             "skipped_count": len(skipped),
-            "processed_count": len(processed),
+            "processed_count": 0,
+            "queued_count": len(queued),
             "failed_count": len(failed),
             "imported_items": imported,
             "skipped_message_ids": skipped,
-            "processed_item_ids": processed,
+            "processed_item_ids": [],
+            "queued_item_ids": queued,
+            "queued_run_ids": queued_runs,
             "failures": failed,
         }
         self.settings.set_gmail_last_sync_result(

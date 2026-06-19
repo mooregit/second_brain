@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FileVideo, Loader2, Paperclip, Play, Trash2 } from 'lucide-react';
-import { FileAsset, MediaArtifact, deleteItem, getItem, processItem } from '../api/items';
+import { FileAsset, MediaArtifact, cancelProcessingRun, deleteItem, getItem, processItem, retryProcessingRun } from '../api/items';
 import { deleteMemory, patchMemory } from '../api/memories';
 import { createDecision, createIdea, createQuestion, createTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
 import ExtractionReview, { ExtractionReviewPayload } from '../components/ExtractionReview';
@@ -10,7 +10,15 @@ export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const item = useQuery({ queryKey: ['item', id], queryFn: () => getItem(id!), enabled: Boolean(id) });
+  const item = useQuery({
+    queryKey: ['item', id],
+    queryFn: () => getItem(id!),
+    enabled: Boolean(id),
+    refetchInterval: (query) => {
+      const status = query.state.data?.latest_processing_run?.status;
+      return status === 'pending' || status === 'processing' ? 2000 : false;
+    }
+  });
   const processMutation = useMutation({
     mutationFn: () => processItem(id!),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['item', id] })
@@ -90,9 +98,19 @@ export default function ItemDetail() {
       queryClient.invalidateQueries({ queryKey: ['graph'] });
     }
   });
+  const cancelRunMutation = useMutation({
+    mutationFn: cancelProcessingRun,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['item', id] })
+  });
+  const retryRunMutation = useMutation({
+    mutationFn: retryProcessingRun,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['item', id] })
+  });
 
   if (item.isLoading) return <div>Loading...</div>;
   if (!item.data) return <div>Item not found.</div>;
+  const latestRun = item.data.latest_processing_run;
+  const activeProcessing = latestRun?.status === 'pending' || latestRun?.status === 'processing';
 
   return (
     <div className="space-y-5">
@@ -105,12 +123,12 @@ export default function ItemDetail() {
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <button
               onClick={() => processMutation.mutate()}
-              disabled={processMutation.isPending || deleteItemMutation.isPending}
+              disabled={processMutation.isPending || Boolean(activeProcessing) || deleteItemMutation.isPending}
               className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"
               title="Process item"
             >
-              {processMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-              {processMutation.isPending ? 'Processing' : 'Process'}
+              {processMutation.isPending || activeProcessing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              {processMutation.isPending ? 'Queueing' : activeProcessing ? latestRun?.status : 'Process'}
             </button>
             <button
               type="button"
@@ -128,10 +146,12 @@ export default function ItemDetail() {
             </button>
           </div>
         </div>
-        {processMutation.isPending && (
+        {(processMutation.isPending || activeProcessing) && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
             <Loader2 size={16} className="animate-spin" />
-            Extracting structured memories with Ollama. This can take a minute for local models.
+            {activeProcessing
+              ? `Processing run ${latestRun?.status}. This page will refresh until extraction finishes.`
+              : 'Queueing structured extraction.'}
           </div>
         )}
         <pre className="whitespace-pre-wrap rounded-md bg-slate-50 p-4 text-sm text-slate-800">{item.data.item.body_text}</pre>
@@ -142,9 +162,29 @@ export default function ItemDetail() {
         <section className="rounded-md border border-slate-200 bg-white p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Extraction Diagnostics</h2>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-              <span className="rounded-md bg-slate-100 px-2 py-1">{item.data.latest_processing_run.status}</span>
-              <span className="rounded-md bg-slate-100 px-2 py-1">{item.data.latest_processing_run.model}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <span className="rounded-md bg-slate-100 px-2 py-1">{latestRun?.status}</span>
+              <span className="rounded-md bg-slate-100 px-2 py-1">{latestRun?.model}</span>
+              {latestRun?.status === 'pending' && (
+                <button
+                  type="button"
+                  onClick={() => cancelRunMutation.mutate(latestRun.id)}
+                  disabled={cancelRunMutation.isPending}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              )}
+              {(latestRun?.status === 'failed' || latestRun?.status === 'canceled') && (
+                <button
+                  type="button"
+                  onClick={() => retryRunMutation.mutate(latestRun.id)}
+                  disabled={retryRunMutation.isPending}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Retry
+                </button>
+              )}
             </div>
           </div>
           {item.data.latest_processing_run.error && <p className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{item.data.latest_processing_run.error}</p>}
@@ -182,6 +222,8 @@ export default function ItemDetail() {
       ))}
       {saveReviewMutation.error && <p className="text-sm text-red-700">{saveReviewMutation.error.message}</p>}
       {deleteMemoryMutation.error && <p className="text-sm text-red-700">{deleteMemoryMutation.error.message}</p>}
+      {cancelRunMutation.error && <p className="text-sm text-red-700">{cancelRunMutation.error.message}</p>}
+      {retryRunMutation.error && <p className="text-sm text-red-700">{retryRunMutation.error.message}</p>}
       {deleteItemMutation.error && <p className="text-sm text-red-700">{deleteItemMutation.error.message}</p>}
     </div>
   );
