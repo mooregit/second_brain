@@ -15,7 +15,7 @@ const graphIntentConfig: Record<GraphIntent, { label: string; types: string[]; o
     label: 'Work graph',
     types: ['project', 'task', 'idea', 'decision', 'question'],
     origins: ['project', 'manual', 'extracted', 'relationship'],
-    layout: 'project'
+    layout: 'cluster'
   },
   source: {
     label: 'Source graph',
@@ -43,7 +43,7 @@ export default function Graph() {
   const [showArchived, setShowArchived] = useState(false);
   const [graphIntent, setGraphIntent] = useState<GraphIntent>('work');
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('project');
+  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('cluster');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
