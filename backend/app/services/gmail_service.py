@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 class GmailService:
-    scopes = ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/drive.readonly"]
+    scopes = [
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.compose",
+        "https://www.googleapis.com/auth/drive.readonly",
+    ]
 
     def __init__(self, db: Session) -> None:
         self.db = db

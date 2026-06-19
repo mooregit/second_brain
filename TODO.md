@@ -100,8 +100,8 @@
 - [x] Add backend endpoint to list installed Ollama models and identify completion vs embedding-capable models.
 - [x] Add model recommendation copy in Settings for default, faster, and higher-quality local model choices.
 - [x] Add optional background Gmail polling when Gmail is enabled.
-- [ ] Add Gmail draft creation implementation.
-- [ ] Log every draft creation in `audit_logs`.
+- [x] Add Gmail draft creation implementation.
+- [x] Log every draft creation in `audit_logs`.
 
 ## Phase 8: Gmail Video Attachments
 

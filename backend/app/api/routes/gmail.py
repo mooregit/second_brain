@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.raw_item import RawItemOut
+from app.services.draft_reply_service import DraftReplyService
 from app.services.gmail_service import GmailService
 from app.services.settings_service import SettingsService
 
@@ -13,6 +14,11 @@ router = APIRouter(prefix="/gmail", tags=["gmail"])
 class GmailSyncRequest(BaseModel):
     max_results: int = Field(default=10, ge=1, le=100)
     auto_process: bool | None = None
+
+
+class DraftReplyRequest(BaseModel):
+    email_message_id: str
+    create_in_gmail: bool = True
 
 
 @router.get("/status")
@@ -58,5 +64,21 @@ async def sync_gmail(payload: GmailSyncRequest | None = None, db: Session = Depe
 
 
 @router.post("/draft-reply")
-def draft_reply() -> dict:
-    return {"status": "deferred", "detail": "Draft replies are planned and will never auto-send in the MVP."}
+async def draft_reply(payload: DraftReplyRequest, db: Session = Depends(get_db)) -> dict:
+    try:
+        draft = await DraftReplyService(db).create_draft_reply(
+            payload.email_message_id,
+            create_in_gmail=payload.create_in_gmail,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "id": draft.id,
+        "email_message_id": draft.email_message_id,
+        "body": draft.body,
+        "status": draft.status,
+        "gmail_draft_id": draft.gmail_draft_id,
+        "created_at": draft.created_at.isoformat(),
+    }
