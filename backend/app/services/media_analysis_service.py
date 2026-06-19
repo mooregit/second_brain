@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models import FileAsset, MediaArtifact, RawItem
+from app.services.ollama_client import OllamaClient
 
 
 class MediaAnalysisService:
@@ -70,7 +71,8 @@ class MediaAnalysisService:
 
         audio_artifact = self._extract_audio(item.id, asset, source_path, output_dir)
         self._transcribe_audio(item.id, asset, audio_artifact, output_dir)
-        self._sample_frame(item.id, asset, source_path, output_dir)
+        frame_artifact = self._sample_frame(item.id, asset, source_path, output_dir)
+        self._summarize_frame(item.id, asset, frame_artifact)
 
     def _extract_audio(self, raw_item_id: str, asset: FileAsset, source_path: Path, output_dir: Path) -> MediaArtifact:
         artifact = self._get_or_create_artifact(raw_item_id, asset.id, "audio")
@@ -198,6 +200,44 @@ class MediaAnalysisService:
             self._run(["ffmpeg", "-y", "-i", str(source_path), "-frames:v", "1", str(frame_path)])
             artifact.status = "processed"
             artifact.text_content = f"Sampled frame saved to {frame_path}."
+        except Exception as exc:
+            artifact.status = "failed"
+            artifact.error = str(exc)
+        return artifact
+
+    def _summarize_frame(self, raw_item_id: str, asset: FileAsset, frame_artifact: MediaArtifact) -> MediaArtifact:
+        artifact = self._get_or_create_artifact(raw_item_id, asset.id, "frame_summary")
+        if artifact.status == "processed" and artifact.text_content:
+            return artifact
+
+        if frame_artifact.status != "processed" or not frame_artifact.stored_path or not Path(frame_artifact.stored_path).exists():
+            artifact.status = "failed"
+            artifact.error = "Frame sampling did not produce a usable image."
+            artifact.metadata_json = {"frame_artifact_id": frame_artifact.id}
+            return artifact
+
+        model = self.settings.media_vision_model.strip()
+        if not model:
+            artifact.status = "pending"
+            artifact.text_content = "Frame summary pending. Set MEDIA_VISION_MODEL to a local Ollama vision model."
+            artifact.error = None
+            artifact.metadata_json = {"requires": "MEDIA_VISION_MODEL", "frame_artifact_id": frame_artifact.id}
+            return artifact
+
+        artifact.status = "processing"
+        artifact.error = None
+        artifact.metadata_json = {
+            "backend": "ollama",
+            "model": model,
+            "frame_artifact_id": frame_artifact.id,
+            "frame_path": frame_artifact.stored_path,
+        }
+        try:
+            summary = OllamaClient().generate_with_images_sync(model, self.settings.media_vision_prompt, [frame_artifact.stored_path])
+            artifact.text_content = summary.strip() or "Vision model completed but returned no frame summary."
+            artifact.status = "processed" if summary.strip() else "failed"
+            if not summary.strip():
+                artifact.error = "Vision model returned no frame summary."
         except Exception as exc:
             artifact.status = "failed"
             artifact.error = str(exc)

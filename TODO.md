@@ -115,8 +115,8 @@
 - [x] Sample a representative video frame with `ffmpeg`.
 - [x] Merge media artifact context, transcript text, and email body into the extraction prompt.
 - [x] Pick and document the default local transcription backend/model.
-- [ ] Pass sampled frames through a local vision model for visual context.
-- [ ] Add generated frame summaries to the extraction prompt.
+- [x] Pass sampled frames through a local vision model for visual context.
+- [x] Add generated frame summaries to the extraction prompt.
 - [x] Add tests for Gmail video attachment import and storage.
 - [x] Add tests for downstream media artifact generation and prompt enrichment.
 

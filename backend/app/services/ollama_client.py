@@ -1,3 +1,6 @@
+import base64
+from pathlib import Path
+
 import httpx
 
 from app.core.config import get_settings
@@ -18,6 +21,13 @@ class OllamaClient:
             response = await client.post("/api/embeddings", json={"model": model, "prompt": text})
             response.raise_for_status()
             return response.json()["embedding"]
+
+    def generate_with_images_sync(self, model: str, prompt: str, image_paths: list[str]) -> str:
+        images = [base64.b64encode(Path(path).read_bytes()).decode("ascii") for path in image_paths]
+        with httpx.Client(base_url=self.settings.ollama_base_url, timeout=120) as client:
+            response = client.post("/api/generate", json={"model": model, "prompt": prompt, "images": images, "stream": False})
+            response.raise_for_status()
+            return response.json()["response"]
 
     async def list_models(self) -> list[dict]:
         async with httpx.AsyncClient(base_url=self.settings.ollama_base_url, timeout=10) as client:

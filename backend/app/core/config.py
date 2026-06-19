@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     media_transcription_device: str = "cpu"
     media_transcription_compute_type: str = "int8"
     media_transcription_command: str = ""
+    media_vision_model: str = ""
+    media_vision_prompt: str = (
+        "Describe the visible content in this video frame for personal knowledge extraction. "
+        "Focus on on-screen text, diagrams, UI, people, objects, actions, and anything that could imply tasks, ideas, "
+        "questions, decisions, or projects. Be concise and do not invent details."
+    )
 
     model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 

@@ -583,7 +583,8 @@ When Gmail sync imports an email with `video/*` attachments, the backend stores 
 - `ffmpeg` samples a representative video frame.
 - By default, `faster-whisper` transcribes the extracted audio locally.
 - If `MEDIA_TRANSCRIPTION_BACKEND=command`, the backend runs `MEDIA_TRANSCRIPTION_COMMAND` and stores stdout or a generated `.txt` file as the transcript.
-- The email body, attachment names, transcript, and media artifact status are included in the extraction prompt.
+- If `MEDIA_VISION_MODEL` is set to a local Ollama vision model, the backend summarizes the sampled frame and stores it as a `frame_summary` artifact.
+- The email body, attachment names, transcript, frame summary, and media artifact status are included in the extraction prompt.
 
 If the Gmail message contains a Google Drive video link like `https://drive.google.com/file/d/...`, sync uses the Drive API to download that video into `data/uploads/drive/` and then follows the same media analysis path.
 
@@ -603,9 +604,22 @@ MEDIA_TRANSCRIPTION_BACKEND=faster-whisper
 MEDIA_TRANSCRIPTION_MODEL=base
 MEDIA_TRANSCRIPTION_DEVICE=cpu
 MEDIA_TRANSCRIPTION_COMPUTE_TYPE=int8
+MEDIA_VISION_MODEL=
 ```
 
 The first transcription run may download model files inside the backend container.
+
+Frame summaries are opt-in because they require a local vision-capable Ollama model. To enable them, pull a vision model on the host and set `MEDIA_VISION_MODEL`:
+
+```bash
+ollama pull llava:latest
+```
+
+```env
+MEDIA_VISION_MODEL=llava:latest
+```
+
+If `MEDIA_VISION_MODEL` is blank, the app still stores sampled frame paths and marks the frame summary as pending.
 
 Command-based transcription is still available as an escape hatch. Set `MEDIA_TRANSCRIPTION_BACKEND=command`, then provide a command. The command can use these placeholders:
 
