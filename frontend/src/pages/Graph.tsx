@@ -13,7 +13,7 @@ export default function Graph() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showArchived, setShowArchived] = useState(false);
-  const [showSources, setShowSources] = useState(false);
+  const [showSources, setShowSources] = useState(true);
   const [showTags, setShowTags] = useState(true);
   const [showEntities, setShowEntities] = useState(false);
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
@@ -59,7 +59,7 @@ export default function Graph() {
     mutationFn: deduplicateGraph,
     onSuccess: (result) => {
       setDedupeMessage(
-        `Merged ${result.projects_merged} projects, ${result.tags_merged} tags; normalized ${result.relationship_labels_normalized} labels; removed ${result.relationships_removed} duplicate relationships.`
+        `Merged ${result.projects_merged} projects, ${result.tags_merged} tags; normalized ${result.relationship_labels_normalized} labels; updated ${result.relationship_node_types_updated} relationship node types; removed ${result.relationships_removed} duplicate relationships.`
       );
       setSelectedNodeId(null);
       setLabelDraft('');

@@ -215,6 +215,38 @@ def test_graph_links_relationship_nodes_to_their_source_raw_item(db_session: Ses
     assert ("entity:website-needs-work", url_node_id, "mentions") in edge_pairs
 
 
+def test_graph_relationship_reuses_existing_work_item_node_by_label(db_session: Session) -> None:
+    memory, raw_item = _memory(db_session)
+    project = Project(name="Workflow Imagination")
+    db_session.add(project)
+    db_session.flush()
+    idea = Idea(
+        memory_id=memory.id,
+        project_id=project.id,
+        body="Workflow imagination involves visualizing multi-step processes",
+        source_raw_item_id=raw_item.id,
+    )
+    relationship = Relationship(
+        memory_id=memory.id,
+        source_label="Workflow imagination involves visualizing multi-step processes",
+        target_label="Workflow Imagination",
+        relationship_type="belongs_to",
+        source_node_type="entity",
+        target_node_type="project",
+        source_raw_item_id=raw_item.id,
+    )
+    db_session.add_all([idea, relationship])
+    db_session.commit()
+
+    graph = GraphService(db_session).build()
+    labels = [node.label for node in graph.nodes]
+    edge_pairs = {(edge.source, edge.target, edge.relationship_type) for edge in graph.edges}
+
+    assert labels.count("Workflow imagination involves visualizing multi-step processes") == 1
+    assert ("idea:" + idea.id, "project:" + project.id, "belongs_to") in edge_pairs
+    assert not any(node.id == "entity:workflow-imagination-involves-visualizing-multi-step-processes" for node in graph.nodes)
+
+
 def test_graph_skips_orphan_relationship_nodes(db_session: Session) -> None:
     memory, _raw_item = _memory(db_session)
     db_session.add(
@@ -401,7 +433,7 @@ def test_graph_deduplicate_merges_projects_tags_and_relationships(db_session: Se
         source_label=" Workflow Imagination Project ",
         target_label="Task ",
         relationship_type="Related To",
-        source_node_type="project",
+        source_node_type="entity",
         target_node_type="task",
         source_raw_item_id=raw_item.id,
     )
@@ -425,6 +457,7 @@ def test_graph_deduplicate_merges_projects_tags_and_relationships(db_session: Se
     assert result["projects_merged"] == 1
     assert result["tags_merged"] == 1
     assert result["relationships_removed"] == 1
+    assert result["relationship_node_types_updated"] == 1
     assert task.project_id == canonical_project.id
     assert canonical_tag in memory.tags
     assert duplicate_tag not in memory.tags

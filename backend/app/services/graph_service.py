@@ -224,14 +224,16 @@ class GraphService:
                         GraphEdge(id=edge_id, source=fallback_source_node_id, target=tag_node_id, label="tagged", relationship_type="tagged"),
                     )
 
+        node_by_label = self._node_by_label(nodes, project_node_by_label)
+
         for rel in self.db.scalars(select(Relationship)).all():
             if not self.db.get(RawItem, rel.source_raw_item_id):
                 continue
             ignored_source_labels = self._ignored_source_labels(rel.source_raw_item_id, ignored_labels_by_raw_item_id)
             if self._normalize_label(rel.source_label) in ignored_source_labels or self._normalize_label(rel.target_label) in ignored_source_labels:
                 continue
-            source_id = self._node_id_for_label(rel.source_label, rel.source_node_type, project_node_by_label)
-            target_id = self._node_id_for_label(rel.target_label, rel.target_node_type, project_node_by_label)
+            source_id = self._node_id_for_label(rel.source_label, rel.source_node_type, project_node_by_label, node_by_label)
+            target_id = self._node_id_for_label(rel.target_label, rel.target_node_type, project_node_by_label, node_by_label)
             self._ensure_project_node(nodes, project_nodes, source_id)
             self._ensure_project_node(nodes, project_nodes, target_id)
             if source_id not in nodes:
@@ -262,11 +264,24 @@ class GraphService:
 
         return self._pruned_response(nodes, edges)
 
-    def _node_id_for_label(self, label: str, node_type: str, project_node_by_label: dict[str, str]) -> str:
+    def _node_id_for_label(self, label: str, node_type: str, project_node_by_label: dict[str, str], node_by_label: dict[tuple[str, str], str]) -> str:
         normalized = self._normalize_label(label)
         if normalized in project_node_by_label:
             return project_node_by_label[normalized]
+        if (node_type, normalized) in node_by_label:
+            return node_by_label[(node_type, normalized)]
+        for fallback_type in ("task", "idea", "question", "decision"):
+            if (fallback_type, normalized) in node_by_label:
+                return node_by_label[(fallback_type, normalized)]
         return f"{node_type}:{normalized.replace(' ', '-')}"
+
+    def _node_by_label(self, nodes: dict[str, GraphNode], project_node_by_label: dict[str, str]) -> dict[tuple[str, str], str]:
+        node_by_label = {("project", label): node_id for label, node_id in project_node_by_label.items()}
+        for node in nodes.values():
+            normalized = self._normalize_label(node.label)
+            if node.type in {"task", "idea", "question", "decision", "project"}:
+                node_by_label.setdefault((node.type, normalized), node.id)
+        return node_by_label
 
     def _normalize_label(self, label: str) -> str:
         normalized = " ".join(label.lower().strip().split())

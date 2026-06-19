@@ -106,11 +106,13 @@ def deduplicate_graph(db: Session = Depends(get_db)) -> dict:
         "projects_merged": 0,
         "tags_merged": 0,
         "relationship_labels_normalized": 0,
+        "relationship_node_types_updated": 0,
         "relationships_removed": 0,
     }
     result["projects_merged"] = _merge_duplicate_projects(db)
     result["tags_merged"] = _merge_duplicate_tags(db)
     result["relationship_labels_normalized"] = _normalize_relationship_labels(db)
+    result["relationship_node_types_updated"] = _canonicalize_relationship_node_types(db)
     result["relationships_removed"] = _remove_duplicate_relationships(db)
     db.commit()
     result["status"] = "deduplicated"
@@ -253,9 +255,10 @@ def _merge_duplicate_tags(db: Session) -> int:
 
 def _normalize_relationship_labels(db: Session) -> int:
     updated = 0
+    canonical_labels = {label: canonical for label, (_node_type, canonical) in _existing_work_labels(db).items()}
     for relationship in db.scalars(select(Relationship)).all():
-        source_label = _canonical_label(relationship.source_label)
-        target_label = _canonical_label(relationship.target_label)
+        source_label = canonical_labels.get(_normalize_label(relationship.source_label), _canonical_label(relationship.source_label))
+        target_label = canonical_labels.get(_normalize_label(relationship.target_label), _canonical_label(relationship.target_label))
         relationship_type = _canonical_label(relationship.relationship_type).lower().replace(" ", "_")
         if source_label != relationship.source_label:
             relationship.source_label = source_label
@@ -267,6 +270,36 @@ def _normalize_relationship_labels(db: Session) -> int:
             relationship.relationship_type = relationship_type
             updated += 1
     return updated
+
+
+def _canonicalize_relationship_node_types(db: Session) -> int:
+    label_types = {label: node_type for label, (node_type, _canonical) in _existing_work_labels(db).items()}
+    updated = 0
+    for relationship in db.scalars(select(Relationship)).all():
+        source_type = label_types.get(_normalize_label(relationship.source_label))
+        target_type = label_types.get(_normalize_label(relationship.target_label))
+        if source_type and relationship.source_node_type not in {source_type, "project"}:
+            relationship.source_node_type = source_type
+            updated += 1
+        if target_type and relationship.target_node_type not in {target_type, "project"}:
+            relationship.target_node_type = target_type
+            updated += 1
+    return updated
+
+
+def _existing_work_labels(db: Session) -> dict[str, tuple[str, str]]:
+    label_types: dict[str, tuple[str, str]] = {}
+    for project in db.scalars(select(Project)).all():
+        label_types.setdefault(_normalize_label(project.name), ("project", project.name))
+    for task in db.scalars(select(Task)).all():
+        label_types.setdefault(_normalize_label(task.title), ("task", task.title))
+    for idea in db.scalars(select(Idea)).all():
+        label_types.setdefault(_normalize_label(idea.body), ("idea", idea.body))
+    for question in db.scalars(select(OpenQuestion)).all():
+        label_types.setdefault(_normalize_label(question.question), ("question", question.question))
+    for decision in db.scalars(select(Decision)).all():
+        label_types.setdefault(_normalize_label(decision.title), ("decision", decision.title))
+    return label_types
 
 
 def _remove_duplicate_relationships(db: Session) -> int:

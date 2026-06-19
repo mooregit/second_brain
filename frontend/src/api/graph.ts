@@ -54,6 +54,7 @@ export type GraphDeduplicateResult = {
   projects_merged: number;
   tags_merged: number;
   relationship_labels_normalized: number;
+  relationship_node_types_updated: number;
   relationships_removed: number;
 };
 
