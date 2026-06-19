@@ -122,8 +122,8 @@
 
 ## Product Polish Backlog
 
-- [ ] Add a connector dashboard on the Inbox page with Manual Note, Upload File, Scan Folder, Sync Gmail, Apple Notes export, and planned connector tiles.
-- [ ] Show last sync result, last error, setup status, and next action for each connector.
+- [x] Add a connector dashboard on the Inbox page with Manual Note, Upload File, Scan Folder, Sync Gmail, Apple Notes export, and planned connector tiles.
+- [x] Show last sync result, last error, setup status, and next action for each connector.
 - [ ] Add a processing queue with `pending`, `processing`, `processed`, and `failed` states.
 - [ ] Move long-running processing for Gmail/video/folder imports behind the processing queue.
 - [ ] Add retry, cancel, and reprocess actions for failed or stale processing jobs.

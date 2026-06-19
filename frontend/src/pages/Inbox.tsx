@@ -91,17 +91,19 @@ export default function Inbox() {
         </div>
       </section>
       <div className="space-y-4">
-        <section className="rounded-md border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-base font-semibold">Ways to Bring in Data</h2>
-          <div className="grid gap-2">
-            <ConnectorTile icon={<StickyNote size={16} />} title="Manual note" status="Ready" />
-            <ConnectorTile icon={<Upload size={16} />} title="File upload" status=".txt .md .pdf" />
-            <ConnectorTile icon={<FolderSync size={16} />} title="Folder inbox" status={settings.data?.inbox_folder ?? 'Configured in Settings'} />
-            <ConnectorTile icon={<Mail size={16} />} title="Gmail label sync" status={settings.data?.gmail_query ?? 'SecondBrain'} />
-            <ConnectorTile icon={<Apple size={16} />} title="Apple Notes export" status="Folder or Gmail" />
-            <ConnectorTile icon={<FileText size={16} />} title="More connectors" status="Planned" />
-          </div>
-        </section>
+        <ConnectorDashboard
+          settings={settings.data}
+          gmailStatus={gmailStatus.data}
+          createPending={createMutation.isPending}
+          uploadPending={uploadMutation.isPending}
+          uploadError={uploadMutation.error}
+          scanPending={scanMutation.isPending}
+          scanResult={scanMutation.data}
+          scanError={scanMutation.error}
+          gmailPending={gmailMutation.isPending}
+          gmailResult={gmailMutation.data}
+          gmailError={gmailMutation.error}
+        />
         <form onSubmit={submit} className="rounded-md border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-base font-semibold">Manual Note</h2>
           <textarea
@@ -195,14 +197,143 @@ export default function Inbox() {
   );
 }
 
-function ConnectorTile({ icon, title, status }: { icon: ReactNode; title: string; status: string }) {
+type ConnectorDashboardProps = {
+  settings?: {
+    inbox_folder: string;
+    gmail_query: string;
+    gmail_status: string;
+    gmail_last_sync: { status: string; imported_count: number; processed_count: number; skipped_count: number; failed_count: number; error?: string | null } | null;
+  };
+  gmailStatus?: {
+    status: string;
+    query: string;
+    last_sync: { status: string; imported_count: number; processed_count: number; skipped_count: number; failed_count: number; error?: string | null } | null;
+  };
+  createPending: boolean;
+  uploadPending: boolean;
+  uploadError: Error | null;
+  scanPending: boolean;
+  scanResult?: { created_count: number; skipped_count: number; folder: string };
+  scanError: Error | null;
+  gmailPending: boolean;
+  gmailResult?: { status: string; imported_count: number; processed_count: number; skipped_count: number; failed_count: number; auto_process: boolean };
+  gmailError: Error | null;
+};
+
+function ConnectorDashboard(props: ConnectorDashboardProps) {
+  const lastGmail = props.gmailStatus?.last_sync ?? props.settings?.gmail_last_sync ?? null;
+  const gmailStatus = props.gmailStatus?.status ?? props.settings?.gmail_status ?? 'unknown';
+  const gmailQuery = props.gmailStatus?.query ?? props.settings?.gmail_query ?? 'label:SecondBrain';
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
-      <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-800">
-        <span className="text-slate-500">{icon}</span>
-        <span>{title}</span>
+    <section className="rounded-md border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">Ways to Bring in Data</h2>
+        <Link to="/settings" className="text-xs font-medium text-slate-600 hover:text-slate-900">Settings</Link>
       </div>
-      <span className="truncate text-xs text-slate-500">{status}</span>
+      <div className="grid gap-3">
+        <ConnectorTile
+          icon={<StickyNote size={16} />}
+          title="Manual note"
+          status={props.createPending ? 'working' : 'ready'}
+          setup="Ready"
+          detail="Type or paste notes directly into the inbox."
+          nextAction="Add a note below."
+        />
+        <ConnectorTile
+          icon={<Upload size={16} />}
+          title="File upload"
+          status={props.uploadPending ? 'uploading' : props.uploadError ? 'error' : 'ready'}
+          setup=".txt, .md, .pdf"
+          detail={props.uploadError ? props.uploadError.message : 'Upload supported text and PDF files.'}
+          nextAction="Use the upload control below."
+        />
+        <ConnectorTile
+          icon={<FolderSync size={16} />}
+          title="Folder inbox"
+          status={props.scanPending ? 'scanning' : props.scanError ? 'error' : 'ready'}
+          setup={props.settings?.inbox_folder ?? 'Configured in Settings'}
+          detail={
+            props.scanError
+              ? props.scanError.message
+              : props.scanResult
+                ? `Last scan imported ${props.scanResult.created_count}; skipped ${props.scanResult.skipped_count}.`
+                : 'Drop files into the configured folder and scan manually.'
+          }
+          nextAction="Run Scan inbox folder."
+        />
+        <ConnectorTile
+          icon={<Mail size={16} />}
+          title="Gmail label sync"
+          status={props.gmailPending ? 'syncing' : props.gmailError || lastGmail?.status === 'failed' ? 'error' : gmailStatus}
+          setup={gmailQuery}
+          detail={
+            props.gmailError
+              ? props.gmailError.message
+              : props.gmailResult
+                ? `Latest sync imported ${props.gmailResult.imported_count}; processed ${props.gmailResult.processed_count}; skipped ${props.gmailResult.skipped_count}.`
+                : lastGmail
+                  ? `Last sync ${lastGmail.status}: imported ${lastGmail.imported_count}; processed ${lastGmail.processed_count}; skipped ${lastGmail.skipped_count}.`
+                  : 'Sync messages that match your Gmail query.'
+          }
+          nextAction={gmailStatus === 'ready' ? 'Run Sync Gmail.' : 'Check Gmail setup in Settings.'}
+        />
+        <ConnectorTile
+          icon={<Apple size={16} />}
+          title="Apple Notes export"
+          status="manual"
+          setup="Folder or Gmail"
+          detail="Export notes as files or email them with your SecondBrain label."
+          nextAction="Use folder scan or Gmail sync."
+        />
+        <ConnectorTile
+          icon={<FileText size={16} />}
+          title="More connectors"
+          status="planned"
+          setup="Roadmap"
+          detail="Notion, Google Drive, Sheets, bookmarks, Slack, GitHub, and more are tracked in TODO."
+          nextAction="Pick the next connector from the backlog."
+        />
+      </div>
+    </section>
+  );
+}
+
+function ConnectorTile({
+  icon,
+  title,
+  status,
+  setup,
+  detail,
+  nextAction
+}: {
+  icon: ReactNode;
+  title: string;
+  status: string;
+  setup: string;
+  detail: string;
+  nextAction: string;
+}) {
+  const tone = connectorTone(status);
+  return (
+    <div className="rounded-md border border-slate-200 px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-800">
+          <span className="text-slate-500">{icon}</span>
+          <span>{title}</span>
+        </div>
+        <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${tone}`}>{status}</span>
+      </div>
+      <div className="mt-2 truncate text-xs text-slate-500">{setup}</div>
+      <p className="mt-2 text-sm leading-5 text-slate-600">{detail}</p>
+      <div className="mt-2 text-xs font-medium text-slate-500">{nextAction}</div>
     </div>
   );
+}
+
+function connectorTone(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('error') || normalized.includes('failed') || normalized.includes('missing')) return 'bg-rose-50 text-rose-700';
+  if (normalized.includes('working') || normalized.includes('uploading') || normalized.includes('scanning') || normalized.includes('syncing')) return 'bg-amber-50 text-amber-700';
+  if (normalized.includes('ready') || normalized.includes('succeeded')) return 'bg-emerald-50 text-emerald-700';
+  return 'bg-slate-100 text-slate-700';
 }
