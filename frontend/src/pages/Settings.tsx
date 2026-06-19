@@ -58,11 +58,29 @@ export default function Settings() {
             <dt className="font-medium text-slate-600">Embedding model</dt>
             <dd>{settings.data.ollama_embedding_model}</dd>
             <dt className="font-medium text-slate-600">Gmail</dt>
-            <dd>{settings.data.gmail_status}</dd>
+            <dd>
+              <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">{settings.data.gmail_status}</span>
+            </dd>
             <dt className="font-medium text-slate-600">Gmail credentials</dt>
-            <dd>{settings.data.gmail_credentials_path}</dd>
+            <dd>
+              {settings.data.gmail_credentials_path}
+              <span className={`ml-2 rounded px-2 py-1 text-xs ${settings.data.gmail_credentials_exists ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {settings.data.gmail_credentials_exists ? 'found' : 'missing'}
+              </span>
+            </dd>
             <dt className="font-medium text-slate-600">Gmail token</dt>
-            <dd>{settings.data.gmail_token_path}</dd>
+            <dd>
+              {settings.data.gmail_token_path}
+              <span className={`ml-2 rounded px-2 py-1 text-xs ${settings.data.gmail_token_exists ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {settings.data.gmail_token_exists ? 'authorized' : 'needs auth'}
+              </span>
+            </dd>
+            <dt className="font-medium text-slate-600">Latest Gmail sync</dt>
+            <dd>
+              {settings.data.gmail_last_sync
+                ? `${settings.data.gmail_last_sync.status}: imported ${settings.data.gmail_last_sync.imported_count}, processed ${settings.data.gmail_last_sync.processed_count}, skipped ${settings.data.gmail_last_sync.skipped_count}`
+                : 'none'}
+            </dd>
           </dl>
           <form onSubmit={submit} className="max-w-3xl space-y-2 border-t border-slate-200 pt-4">
             <label className="block text-sm font-medium text-slate-700">

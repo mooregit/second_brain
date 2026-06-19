@@ -92,10 +92,10 @@
 - [x] Add local OAuth setup.
 - [x] Add Gmail sync implementation.
 - [x] Import labeled or prefixed emails into `RawItem` and `EmailMessage`.
-- [ ] Show active Gmail query on the Inbox Gmail card.
-- [ ] Persist and show the latest Gmail sync result.
-- [ ] Add a `Sync without auto-process` action for Gmail testing.
-- [ ] Add a clearer Gmail setup/status indicator in Settings.
+- [x] Show active Gmail query on the Inbox Gmail card.
+- [x] Persist and show the latest Gmail sync result.
+- [x] Add a `Sync without auto-process` action for Gmail testing.
+- [x] Add a clearer Gmail setup/status indicator in Settings.
 - [ ] Add Ollama model selection in Settings for extraction/Ask and embedding models.
 - [ ] Add backend endpoint to list installed Ollama models and identify completion vs embedding-capable models.
 - [ ] Add model recommendation copy in Settings for default, faster, and higher-quality local model choices.

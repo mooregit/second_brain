@@ -1,3 +1,7 @@
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -10,6 +14,7 @@ class SettingsService:
     GMAIL_LABEL_KEY = "gmail_label"
     GMAIL_QUERY_KEY = "gmail_query"
     GMAIL_AUTO_PROCESS_KEY = "gmail_auto_process"
+    GMAIL_LAST_SYNC_KEY = "gmail_last_sync_result"
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -47,6 +52,32 @@ class SettingsService:
         self._set(self.GMAIL_AUTO_PROCESS_KEY, str(value).lower())
         return value
 
+    def get_gmail_last_sync_result(self) -> dict | None:
+        value = self._get(self.GMAIL_LAST_SYNC_KEY, "")
+        if not value:
+            return None
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return None
+
+    def set_gmail_last_sync_result(self, result: dict) -> dict:
+        self._set(self.GMAIL_LAST_SYNC_KEY, json.dumps(result, default=str))
+        return result
+
+    def set_gmail_last_sync_error(self, error: str, query: str | None = None) -> dict:
+        result = {
+            "status": "failed",
+            "query": query or self.get_gmail_query(),
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+            "error": error,
+            "imported_count": 0,
+            "skipped_count": 0,
+            "processed_count": 0,
+            "failed_count": 1,
+        }
+        return self.set_gmail_last_sync_result(result)
+
     def _get(self, key: str, fallback: str) -> str:
         setting = self.db.get(AppSetting, key)
         return setting.value if setting else fallback
@@ -65,6 +96,8 @@ class SettingsService:
         return value
 
     def as_dict(self) -> dict:
+        credentials_exists = self._path(self.env_settings.gmail_credentials_path).exists()
+        token_exists = self._path(self.env_settings.gmail_token_path).exists()
         return {
             "ollama_base_url": self.env_settings.ollama_base_url,
             "ollama_extraction_model": self.env_settings.ollama_extraction_model,
@@ -76,5 +109,23 @@ class SettingsService:
             "gmail_auto_process": self.get_gmail_auto_process(),
             "gmail_credentials_path": self.env_settings.gmail_credentials_path,
             "gmail_token_path": self.env_settings.gmail_token_path,
-            "gmail_status": "configured" if self.get_gmail_enabled() else "disabled",
+            "gmail_credentials_exists": credentials_exists,
+            "gmail_token_exists": token_exists,
+            "gmail_status": self._gmail_status(credentials_exists, token_exists),
+            "gmail_last_sync": self.get_gmail_last_sync_result(),
         }
+
+    def _gmail_status(self, credentials_exists: bool, token_exists: bool) -> str:
+        if not self.get_gmail_enabled():
+            return "disabled"
+        if not credentials_exists:
+            return "missing_credentials"
+        if not token_exists:
+            return "needs_authorization"
+        return "ready"
+
+    def _path(self, value: str) -> Path:
+        path = Path(value).expanduser()
+        if path.is_absolute():
+            return path
+        return (Path.cwd() / path).resolve()

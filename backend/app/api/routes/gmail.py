@@ -23,6 +23,12 @@ def gmail_status(db: Session = Depends(get_db)) -> dict:
         "query": settings.get_gmail_query(),
         "label": settings.get_gmail_label(),
         "auto_process": settings.get_gmail_auto_process(),
+        "credentials_path": settings.env_settings.gmail_credentials_path,
+        "token_path": settings.env_settings.gmail_token_path,
+        "credentials_exists": settings.as_dict()["gmail_credentials_exists"],
+        "token_exists": settings.as_dict()["gmail_token_exists"],
+        "status": settings.as_dict()["gmail_status"],
+        "last_sync": settings.get_gmail_last_sync_result(),
     }
 
 
@@ -32,9 +38,14 @@ async def sync_gmail(payload: GmailSyncRequest | None = None, db: Session = Depe
     try:
         result = await GmailService(db).sync(max_results=payload.max_results, auto_process=payload.auto_process)
     except RuntimeError as exc:
+        SettingsService(db).set_gmail_last_sync_error(str(exc))
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
+        "status": result["status"],
         "query": result["query"],
+        "auto_process": result["auto_process"],
+        "max_results": result["max_results"],
+        "synced_at": result["synced_at"],
         "imported_count": result["imported_count"],
         "skipped_count": result["skipped_count"],
         "processed_count": result["processed_count"],

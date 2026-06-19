@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Apple, FileText, FolderSync, Inbox as InboxIcon, Loader2, Mail, Plus, StickyNote, Trash2, Upload } from 'lucide-react';
 import { createManualItem, deleteItem, listItems, scanInboxFolder, uploadItem } from '../api/items';
-import { syncGmail } from '../api/gmail';
+import { getGmailStatus, syncGmail } from '../api/gmail';
 import { getSettings } from '../api/views';
 
 export default function Inbox() {
@@ -11,6 +11,7 @@ export default function Inbox() {
   const queryClient = useQueryClient();
   const items = useQuery({ queryKey: ['items'], queryFn: listItems });
   const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings });
+  const gmailStatus = useQuery({ queryKey: ['gmail-status'], queryFn: getGmailStatus });
   const createMutation = useMutation({
     mutationFn: () => createManualItem(note),
     onSuccess: () => {
@@ -27,8 +28,12 @@ export default function Inbox() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] })
   });
   const gmailMutation = useMutation({
-    mutationFn: () => syncGmail(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['items'] })
+    mutationFn: (autoProcess?: boolean) => syncGmail(10, autoProcess),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['gmail-status'] });
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    }
   });
   const deleteMutation = useMutation({
     mutationFn: deleteItem,
@@ -152,16 +157,34 @@ export default function Inbox() {
           <h2 className="mb-3 text-base font-semibold">Gmail</h2>
           <button
             type="button"
-            onClick={() => gmailMutation.mutate()}
+            onClick={() => gmailMutation.mutate(undefined)}
             disabled={gmailMutation.isPending}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
           >
             {gmailMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <InboxIcon size={16} />}
             Sync Gmail
           </button>
+          <button
+            type="button"
+            onClick={() => gmailMutation.mutate(false)}
+            disabled={gmailMutation.isPending}
+            className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50"
+          >
+            {gmailMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <InboxIcon size={16} />}
+            Sync without auto-process
+          </button>
+          <div className="mt-3 space-y-1 text-sm text-slate-600">
+            <div>Query: {gmailStatus.data?.query ?? settings.data?.gmail_query ?? 'label:SecondBrain'}</div>
+            <div>Status: {gmailStatus.data?.status ?? settings.data?.gmail_status ?? 'unknown'}</div>
+            {gmailStatus.data?.last_sync && (
+              <div>
+                Last sync: {gmailStatus.data.last_sync.status} · imported {gmailStatus.data.last_sync.imported_count} · processed {gmailStatus.data.last_sync.processed_count} · skipped {gmailStatus.data.last_sync.skipped_count}
+              </div>
+            )}
+          </div>
           {gmailMutation.data && (
             <p className="mt-2 text-sm text-slate-600">
-              Imported {gmailMutation.data.imported_count}; processed {gmailMutation.data.processed_count}; skipped {gmailMutation.data.skipped_count}
+              Imported {gmailMutation.data.imported_count}; processed {gmailMutation.data.processed_count}; skipped {gmailMutation.data.skipped_count}; mode {gmailMutation.data.auto_process ? 'auto-process' : 'sync only'}
             </p>
           )}
           {gmailMutation.data?.failed_count ? <p className="mt-2 text-sm text-red-700">{gmailMutation.data.failed_count} imported emails failed processing.</p> : null}

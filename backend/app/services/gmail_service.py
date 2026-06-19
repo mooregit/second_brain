@@ -55,8 +55,12 @@ class GmailService:
                 except Exception as exc:
                     failed.append({"raw_item_id": item.id, "error": str(exc)})
 
-        return {
+        result = {
+            "status": "succeeded" if not failed else "completed_with_failures",
             "query": query,
+            "auto_process": should_process,
+            "max_results": max_results,
+            "synced_at": datetime.now(timezone.utc).isoformat(),
             "imported_count": len(imported),
             "skipped_count": len(skipped),
             "processed_count": len(processed),
@@ -66,6 +70,14 @@ class GmailService:
             "processed_item_ids": processed,
             "failures": failed,
         }
+        self.settings.set_gmail_last_sync_result(
+            {
+                key: value
+                for key, value in result.items()
+                if key not in {"imported_items"}
+            }
+        )
+        return result
 
     def _client(self) -> Any:
         return self._google_service("gmail", "v1")

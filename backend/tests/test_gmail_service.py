@@ -35,6 +35,14 @@ def test_gmail_sync_imports_messages_once(db_session: Session) -> None:
     assert first["imported_count"] == 1
     assert first["skipped_count"] == 0
     assert first["processed_count"] == 0
+    assert first["auto_process"] is False
+
+    latest_sync = SettingsService(db_session).get_gmail_last_sync_result()
+    assert latest_sync is not None
+    assert latest_sync["status"] == "succeeded"
+    assert latest_sync["query"] == "label:SecondBrain"
+    assert latest_sync["imported_count"] == 1
+    assert latest_sync["processed_count"] == 0
 
     item = db_session.scalar(select(RawItem).where(RawItem.source_type == "gmail"))
     assert item is not None

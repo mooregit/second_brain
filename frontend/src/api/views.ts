@@ -26,7 +26,19 @@ export type Settings = {
   gmail_auto_process: boolean;
   gmail_credentials_path: string;
   gmail_token_path: string;
+  gmail_credentials_exists: boolean;
+  gmail_token_exists: boolean;
   gmail_status: string;
+  gmail_last_sync: {
+    status: string;
+    query: string;
+    synced_at: string;
+    imported_count: number;
+    skipped_count: number;
+    processed_count: number;
+    failed_count: number;
+    error?: string;
+  } | null;
 };
 
 export const listProjects = () => api<Project[]>('/projects');
