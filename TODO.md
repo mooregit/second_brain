@@ -183,17 +183,51 @@
 - [ ] Add support inbox import for support emails, tickets, and customer conversations.
 - [ ] Add website analytics export import for traffic, conversions, and reporting snapshots.
 
+## Source-To-Markdown And Obsidian Export
+
+- [ ] Add a source-to-Markdown converter service that can run independently from memory extraction.
+- [ ] Convert PDF text into clean Markdown with source metadata.
+- [ ] Convert EPUB books into Markdown chapters.
+- [ ] Add DOCX-to-Markdown support.
+- [ ] Add HTML/web-page-to-Markdown support.
+- [ ] Convert email bodies and video/audio transcripts into Markdown source notes.
+- [ ] Preserve title, author, source URL/file path, imported date, source type, and `raw_item_id` in frontmatter.
+- [ ] Preserve page, chapter, section, or timestamp citations where available.
+- [ ] Split long documents into chapter, section, page-range, or semantic-chunk files.
+- [ ] Generate optional companion Markdown files for summaries, concepts, questions, highlights, tasks, decisions, and relationships.
+- [ ] Add Obsidian export format with frontmatter, backlinks, source links, and vault-friendly folder layout.
+- [ ] Add JSON Canvas-compatible export for reviewed graph relationships where useful.
+- [ ] Add plain Markdown folder export for non-Obsidian use cases.
+- [ ] Add CLI command shape: `secondbrain convert source.pdf --to markdown`.
+- [ ] Add batch conversion for folders of PDFs, EPUBs, DOCX files, and HTML files.
+- [ ] Add tests for source metadata preservation, chunk splitting, and Obsidian frontmatter/backlink output.
+
 ## Agent Context Integrations
 
 - [ ] Add backend endpoints for project context lookup, semantic search, and creating notes/tasks/decisions from external tools.
 - [ ] Add a local `secondbrain` CLI for `search`, `ask`, `project`, `add-note`, `add-task`, and `add-decision`.
+- [ ] Add a read-only MCP context server for `secondbrain_search`, `secondbrain_ask`, and `secondbrain_get_project_context`.
+- [ ] Add MCP tools for fetching source-linked raw items, project tasks, decisions, open questions, and recent changes.
+- [ ] Add explicit approval gates before enabling MCP write tools.
+- [ ] Add MCP write tools for `secondbrain_create_note`, `secondbrain_create_task`, `secondbrain_record_decision`, and `secondbrain_create_open_question`.
 - [ ] Add a Codex skill that teaches Codex when and how to query Second Brain for project context before coding.
 - [ ] Add Codex skill workflows for pulling related decisions, tasks, open questions, and source notes.
 - [ ] Add Codex skill workflows for saving implementation decisions and follow-up tasks back to Second Brain.
-- [ ] Add an MCP server exposing tools like `secondbrain_search`, `secondbrain_ask`, `secondbrain_get_project_context`, `secondbrain_create_note`, `secondbrain_create_task`, and `secondbrain_record_decision`.
 - [ ] Add support for repo-local `.secondbrain.yml` files that map code repos to Second Brain projects, tags, and search scopes.
 - [ ] Add CLI/MCP authentication or local allowlist controls before exposing write actions.
 - [ ] Add README documentation for using Second Brain as context memory for Codex and other local CLI agents.
+
+## Built-In SecondBrain Agent
+
+- [ ] Add an Agent Review page that can inspect inbox items, graph nodes, projects, tasks, decisions, and open questions.
+- [ ] Add agent workflow to review the inbox and suggest action items.
+- [ ] Add agent workflow to find orphaned graph nodes and suggest project/tag/relationship attachments.
+- [ ] Add agent workflow to identify likely duplicate projects, tags, entities, and graph nodes.
+- [ ] Add agent workflow to prepare project briefs from source-linked memories.
+- [ ] Add agent workflow to answer open questions using stored context and source citations.
+- [ ] Add agent workflow to suggest next steps for each active project.
+- [ ] Add proposal UI where agent suggestions can be selected, edited, approved, or rejected before writes occur.
+- [ ] Store agent runs, proposed actions, approved actions, rejected actions, and errors for auditability.
 
 ## Backend Tests
 

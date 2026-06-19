@@ -102,6 +102,28 @@ Rationale:
 - Ask answers and graph nodes need source links.
 - Users must be able to inspect the raw note behind every extracted fact.
 
+### Position Around Obsidian As An Ingestion Engine
+
+Second Brain Inbox should not try to compete with Obsidian as a note editor. Obsidian is already a mature local-first workspace for writing, Markdown files, links, graph exploration, web clipping, Canvas, and plugin-driven workflows.
+
+Decision:
+
+- Position Second Brain Inbox as a local AI ingestion and extraction engine.
+- Let it stand alone for users who want an app workflow.
+- Also support exporting reviewed memory into Obsidian-friendly Markdown and graph artifacts later.
+
+Rationale:
+
+- The app's strongest differentiator is turning raw inputs into structured, source-traceable records.
+- Obsidian is better suited for long-form writing, manual note gardening, and vault-based knowledge work.
+- Interoperability is more valuable than duplicating Obsidian's editor and plugin ecosystem.
+
+Future export direction:
+
+- Export reviewed memories to an Obsidian vault as Markdown.
+- Include frontmatter, backlinks, source links, and raw item traceability.
+- Add Canvas/graph-compatible relationship data where useful.
+
 ### Use Postgres With pgvector Available For Search
 
 Embeddings are stored in Postgres for MVP scale. The Docker database image includes pgvector and initializes the `vector` extension so native vector indexes can be added when needed.

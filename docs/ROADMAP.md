@@ -13,6 +13,62 @@ Second Brain Inbox should remain focused on local-first personal/work knowledge 
 
 Future work should improve this core loop before expanding into separate product modes.
 
+## Obsidian Positioning
+
+Second Brain Inbox should not try to beat Obsidian as a note editor. Obsidian is a mature local-first writing, linking, clipping, and knowledge workspace. Second Brain Inbox should instead be positioned as a local AI ingestion and extraction engine that can either stand alone or export into Obsidian.
+
+A strong future direction is:
+
+> Process everything in Second Brain Inbox, then export reviewed memories to an Obsidian vault as Markdown with frontmatter, backlinks, source links, and Canvas/graph-compatible relationship data.
+
+This means Obsidian integration should focus on interoperability:
+
+- Export reviewed memories, projects, tasks, ideas, decisions, and open questions as Markdown files.
+- Preserve source links and raw-item traceability in frontmatter.
+- Generate backlinks between exported records.
+- Optionally emit JSON Canvas-compatible graph data for visual review in Obsidian.
+- Treat Obsidian as a durable writing and knowledge workspace, not as a feature-for-feature competitor.
+
+## Source-To-Markdown Pipeline
+
+A related product direction is a source-to-Markdown converter that turns durable but hard-to-work-with sources into clean Markdown and optional structured memories.
+
+This should support standalone export use cases and Obsidian interoperability:
+
+- Convert PDFs, EPUBs, DOCX files, HTML, web pages, emails, transcripts, and video transcripts into readable Markdown.
+- Preserve source metadata such as title, author, source URL/file path, imported date, page/chapter/section references, and Second Brain raw item IDs.
+- Split long sources into stable files by chapter, section, page range, or semantic chunk.
+- Add frontmatter and stable anchors for citation/backlink use.
+- Optionally generate companion files for summaries, concepts, questions, highlights, tasks, decisions, and relationships.
+- Export to an Obsidian vault, plain Markdown folder, Git-backed docs folder, or Second Brain memory records.
+
+For books, the valuable version is not simple PDF-to-text. It should produce a structured Markdown package:
+
+```text
+Book/PDF/EPUB
+-> clean Markdown chapters
+-> frontmatter
+-> source/page citations
+-> chapter summaries
+-> concepts/entities
+-> extracted questions
+-> optional Obsidian backlinks
+```
+
+Example export shape:
+
+```text
+vault/
+  Sources/
+    Book Name/
+      index.md
+      chapter-01.md
+      chapter-02.md
+      concepts.md
+      questions.md
+      highlights.md
+```
+
 ## Near-Term Priorities
 
 1. Connector dashboard
@@ -59,6 +115,10 @@ Prioritize connectors that fit the local-first model and create `RawItem`, optio
 
 Second Brain should eventually act as context memory for local coding agents and CLI tools.
 
+### MCP Context Server
+
+The first agent-facing surface should be a controlled context server rather than a fully autonomous agent. An MCP server would let Codex, Claude Desktop, local CLI agents, and future tools query Second Brain through a stable interface.
+
 Planned surfaces:
 
 - Local `secondbrain` CLI with commands such as `search`, `ask`, `project`, `add-note`, `add-task`, and `add-decision`.
@@ -66,6 +126,50 @@ Planned surfaces:
 - Codex skill that teaches Codex when to query Second Brain for project context and when to write decisions or follow-up tasks back.
 - Repo-local `.secondbrain.yml` files that map code repositories to Second Brain projects, tags, and search scopes.
 - Local allowlist/auth controls before exposing write actions.
+
+Read-only tools should come first:
+
+- Search memories, projects, tasks, decisions, and questions.
+- Fetch project context.
+- Fetch source-linked raw items.
+- Ask a retrieval-grounded question against Second Brain.
+
+Write tools should require explicit local approval at first:
+
+- Create notes.
+- Create tasks.
+- Record decisions.
+- Add open questions.
+- Save implementation follow-ups from coding agents.
+
+### Built-In SecondBrain Agent
+
+After the MCP/context layer is useful, add an in-app agent that uses the same tools but works inside the Second Brain UI.
+
+Initial agent workflows:
+
+- Review the inbox and suggest what needs action.
+- Find orphaned graph nodes and propose relationships.
+- Summarize what changed this week.
+- Suggest duplicate project/tag/entity merges.
+- Turn an email, video, file, or PDF into project tasks.
+- Prepare project briefs from stored memories and sources.
+- Answer open questions using stored context.
+- Suggest next steps for active projects.
+
+The built-in agent should be proposal-first, not autonomous. It should present suggested changes and let the user approve selected actions before anything is written.
+
+Example:
+
+```text
+Agent suggestion:
+- Merge "company workflows" into "Workflow Imagination"
+- Attach "video analysis" to "Workflow Imagination"
+- Create task: "Review workflow automation opportunities"
+- Archive duplicate node: "Workflow imagination involves visualizing multi-step processes"
+
+[Apply selected]
+```
 
 ## Future Platform Module: Developmental Learning Agent
 
