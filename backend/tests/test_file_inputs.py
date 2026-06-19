@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.database import Base
 from app.models import RawItem
 from app.services.file_service import FileService
+from app.services.folder_watcher import FolderWatcher
 from app.services.settings_service import SettingsService
 
 
@@ -44,3 +45,26 @@ def test_scan_inbox_folder_imports_supported_files_once(db_session: Session, tmp
     second_scan = FileService(db_session).scan_inbox_folder()
     assert second_scan["created_count"] == 0
     assert second_scan["skipped_count"] == 2
+
+
+def test_folder_watcher_scan_once_uses_configured_inbox(db_session: Session, tmp_path) -> None:
+    inbox = tmp_path / "watch"
+    inbox.mkdir()
+    (inbox / "task.txt").write_text("Follow up from folder.", encoding="utf-8")
+    SettingsService(db_session).set_inbox_folder(str(inbox))
+
+    class SessionFactory:
+        called = False
+
+        def __call__(self) -> Session:
+            self.called = True
+            return db_session
+
+    factory = SessionFactory()
+    result = FolderWatcher(factory).scan_once()
+
+    assert result["created_count"] == 1
+    assert factory.called is True
+    item = db_session.scalar(select(RawItem).where(RawItem.source_uri == str(inbox / "task.txt")))
+    assert item is not None
+    assert item.title == "task"

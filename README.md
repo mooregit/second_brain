@@ -470,6 +470,35 @@ Uploaded files are copied under `data/uploads/` and linked as `FileAsset` record
 
 Scanned/image-only PDFs are not OCRed yet. For those, export or OCR the PDF to selectable text first, then upload or drop it into the inbox folder.
 
+### Folder Inbox
+
+The folder inbox imports supported files from the configured inbox folder. The default path is:
+
+```text
+data/inbox/
+```
+
+The path can be changed in `Settings` with the `Inbox folder` field. From the Inbox page, click `Scan inbox folder` to import new `.txt`, `.md`, or selectable-text `.pdf` files. Files are skipped after the first import by matching their source path.
+
+For local polling or future scheduled workers, the backend includes a `FolderWatcher` service that runs the same scan behavior repeatedly.
+
+### Apple Notes And iCloud Notes
+
+Apple Notes does not provide a simple local API for direct ingestion, so the current supported path is export-to-folder or share-to-email:
+
+1. Export or copy selected Apple Notes as `.txt`, `.md`, or `.html`.
+2. Save the exported files into the configured inbox folder.
+3. Use `Scan inbox folder` from the Inbox page.
+
+For notes you want to route through Gmail, share or forward the note to the Gmail account connected to Second Brain and apply the configured Gmail label or query match.
+
+Future macOS automation can use a Shortcut or AppleScript flow:
+
+1. Select notes in Apple Notes.
+2. Export note title and body as `.md` or `.txt`.
+3. Save each note into the configured inbox folder.
+4. Optionally run the folder scan endpoint after export.
+
 ## Gmail Import
 
 Gmail import is manual-first and label/query scoped. The recommended Gmail filter applies a `SecondBrain` label, then the app syncs only messages matching:

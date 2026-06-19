@@ -1,14 +1,16 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, type ReactNode, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { FolderSync, Inbox as InboxIcon, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { Apple, FileText, FolderSync, Inbox as InboxIcon, Loader2, Mail, Plus, StickyNote, Trash2, Upload } from 'lucide-react';
 import { createManualItem, deleteItem, listItems, scanInboxFolder, uploadItem } from '../api/items';
 import { syncGmail } from '../api/gmail';
+import { getSettings } from '../api/views';
 
 export default function Inbox() {
   const [note, setNote] = useState('');
   const queryClient = useQueryClient();
   const items = useQuery({ queryKey: ['items'], queryFn: listItems });
+  const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings });
   const createMutation = useMutation({
     mutationFn: () => createManualItem(note),
     onSuccess: () => {
@@ -84,6 +86,17 @@ export default function Inbox() {
         </div>
       </section>
       <div className="space-y-4">
+        <section className="rounded-md border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-base font-semibold">Ways to Bring in Data</h2>
+          <div className="grid gap-2">
+            <ConnectorTile icon={<StickyNote size={16} />} title="Manual note" status="Ready" />
+            <ConnectorTile icon={<Upload size={16} />} title="File upload" status=".txt .md .pdf" />
+            <ConnectorTile icon={<FolderSync size={16} />} title="Folder inbox" status={settings.data?.inbox_folder ?? 'Configured in Settings'} />
+            <ConnectorTile icon={<Mail size={16} />} title="Gmail label sync" status={settings.data?.gmail_query ?? 'SecondBrain'} />
+            <ConnectorTile icon={<Apple size={16} />} title="Apple Notes export" status="Folder or Gmail" />
+            <ConnectorTile icon={<FileText size={16} />} title="More connectors" status="Planned" />
+          </div>
+        </section>
         <form onSubmit={submit} className="rounded-md border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-base font-semibold">Manual Note</h2>
           <textarea
@@ -155,6 +168,18 @@ export default function Inbox() {
           {gmailMutation.error && <p className="mt-2 text-sm text-red-700">{gmailMutation.error.message}</p>}
         </section>
       </div>
+    </div>
+  );
+}
+
+function ConnectorTile({ icon, title, status }: { icon: ReactNode; title: string; status: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-800">
+        <span className="text-slate-500">{icon}</span>
+        <span>{title}</span>
+      </div>
+      <span className="truncate text-xs text-slate-500">{status}</span>
     </div>
   );
 }

@@ -79,12 +79,12 @@
 - [x] Store uploaded files in `data/uploads`.
 - [x] Create `FileAsset` rows with source path and metadata.
 - [x] Support `.txt` and `.md` upload acceptance tests.
-- [ ] Add folder watcher for `data/inbox`.
-- [ ] Convert dropped `.txt` or `.md` inbox files into raw items.
-- [ ] Add a "Ways to bring in data" section near the Inbox with supported and planned import paths.
-- [ ] Document Apple Notes/iCloud Notes import as an export-to-folder workflow using `.txt`, `.md`, or `.html` files.
-- [ ] Add a future macOS Shortcut/AppleScript recipe for exporting Apple Notes into the watched inbox folder.
-- [ ] Add Share-to-email guidance for sending Apple Notes into the Gmail SecondBrain label/inbox flow.
+- [x] Add folder watcher for `data/inbox`.
+- [x] Convert dropped `.txt` or `.md` inbox files into raw items.
+- [x] Add a "Ways to bring in data" section near the Inbox with supported and planned import paths.
+- [x] Document Apple Notes/iCloud Notes import as an export-to-folder workflow using `.txt`, `.md`, or `.html` files.
+- [x] Add a future macOS Shortcut/AppleScript recipe for exporting Apple Notes into the watched inbox folder.
+- [x] Add Share-to-email guidance for sending Apple Notes into the Gmail SecondBrain label/inbox flow.
 
 ## Phase 7: Gmail
 
