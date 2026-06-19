@@ -72,6 +72,7 @@ export default function GraphCanvas({
   graph,
   visibleTypes,
   visibleNodeIds,
+  visibleEdgeOrigins,
   relationshipTypeFilter,
   layoutMode = 'project',
   showEdgeLabels,
@@ -82,6 +83,7 @@ export default function GraphCanvas({
   graph: GraphResponse;
   visibleTypes?: Set<string>;
   visibleNodeIds?: Set<string>;
+  visibleEdgeOrigins?: Set<string>;
   relationshipTypeFilter?: string;
   layoutMode?: GraphLayoutMode;
   showEdgeLabels?: boolean;
@@ -95,6 +97,7 @@ export default function GraphCanvas({
         graph={graph}
         visibleTypes={visibleTypes}
         visibleNodeIds={visibleNodeIds}
+        visibleEdgeOrigins={visibleEdgeOrigins}
         relationshipTypeFilter={relationshipTypeFilter}
         layoutMode={layoutMode}
         showEdgeLabels={showEdgeLabels}
@@ -110,6 +113,7 @@ function GraphCanvasInner({
   graph,
   visibleTypes,
   visibleNodeIds,
+  visibleEdgeOrigins,
   relationshipTypeFilter,
   layoutMode,
   showEdgeLabels,
@@ -120,6 +124,7 @@ function GraphCanvasInner({
   graph: GraphResponse;
   visibleTypes?: Set<string>;
   visibleNodeIds?: Set<string>;
+  visibleEdgeOrigins?: Set<string>;
   relationshipTypeFilter?: string;
   layoutMode: GraphLayoutMode;
   showEdgeLabels?: boolean;
@@ -135,8 +140,15 @@ function GraphCanvasInner({
   );
   const renderedNodeIds = useMemo(() => new Set(filteredNodes.map((node) => node.id)), [filteredNodes]);
   const filteredEdges = useMemo(
-    () => graph.edges.filter((edge) => renderedNodeIds.has(edge.source) && renderedNodeIds.has(edge.target) && (!relationshipTypeFilter || edge.relationship_type === relationshipTypeFilter)),
-    [graph.edges, relationshipTypeFilter, renderedNodeIds]
+    () =>
+      graph.edges.filter(
+        (edge) =>
+          renderedNodeIds.has(edge.source) &&
+          renderedNodeIds.has(edge.target) &&
+          (!visibleEdgeOrigins || visibleEdgeOrigins.has(edge.origin ?? 'relationship')) &&
+          (!relationshipTypeFilter || edge.relationship_type === relationshipTypeFilter)
+      ),
+    [graph.edges, relationshipTypeFilter, renderedNodeIds, visibleEdgeOrigins]
   );
   const relatedNodeIds = useMemo(() => {
     if (!selectedNodeId) return null;
@@ -177,6 +189,7 @@ function GraphCanvasInner({
   const edges: Edge[] = filteredEdges.map((edge) => {
     const isRelated = selectedNodeId ? edge.source === selectedNodeId || edge.target === selectedNodeId : true;
     const isHovered = hoveredEdgeId === edge.id;
+    const theme = edgeTheme(edge.origin ?? 'relationship');
     return {
       id: edge.id,
       source: edge.source,
@@ -184,9 +197,10 @@ function GraphCanvasInner({
       label: showEdgeLabels || isHovered || (selectedNodeId && isRelated) ? edge.label : undefined,
       animated: Boolean((selectedNodeId && isRelated) || isHovered),
       style: {
-        stroke: isHovered ? '#f97316' : isRelated ? '#64748b' : '#cbd5e1',
+        stroke: isHovered ? '#f97316' : isRelated ? theme.stroke : '#cbd5e1',
         opacity: selectedNodeId && !isRelated && !isHovered ? 0.14 : 0.9,
-        strokeWidth: (selectedNodeId && isRelated) || isHovered ? 2 : 1
+        strokeWidth: (selectedNodeId && isRelated) || isHovered ? 2 : 1,
+        strokeDasharray: theme.dash
       },
       labelStyle: { fill: '#475569', fontSize: 11 }
     };
@@ -223,6 +237,18 @@ function GraphCanvasInner({
       </ReactFlow>
     </div>
   );
+}
+
+function edgeTheme(origin: string): { stroke: string; dash?: string } {
+  const themes: Record<string, { stroke: string; dash?: string }> = {
+    project: { stroke: '#475569' },
+    source: { stroke: '#94a3b8', dash: '5 4' },
+    tag: { stroke: '#64748b', dash: '2 4' },
+    manual: { stroke: '#ea580c' },
+    extracted: { stroke: '#2563eb' },
+    relationship: { stroke: '#2563eb' }
+  };
+  return themes[origin] ?? themes.relationship;
 }
 
 function columnPositions(nodes: GraphNode[], layoutMode: ColumnLayoutMode): Map<string, { x: number; y: number }> {

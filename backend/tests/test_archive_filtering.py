@@ -91,12 +91,14 @@ def test_graph_links_derived_records_to_their_source_raw_item(db_session: Sessio
     graph = GraphService(db_session).build()
     source_node_id = f"source:{raw_item.id}"
     edge_pairs = {(edge.source, edge.target, edge.relationship_type) for edge in graph.edges}
+    edge_origins = {edge.relationship_type: edge.origin for edge in graph.edges}
 
     assert any(node.id == source_node_id and node.label == "Source" for node in graph.nodes)
     assert any(node.id == f"task:{task.id}" and node.metadata["task_id"] == task.id for node in graph.nodes)
     assert any(node.id == f"idea:{idea.id}" and node.metadata["idea_id"] == idea.id for node in graph.nodes)
     assert (source_node_id, f"task:{task.id}", "from_source") in edge_pairs
     assert (source_node_id, f"idea:{idea.id}", "from_source") in edge_pairs
+    assert edge_origins["from_source"] == "source"
 
 
 def test_graph_work_nodes_include_source_filter_metadata(db_session: Session) -> None:
@@ -181,12 +183,15 @@ def test_graph_uses_project_node_when_source_title_matches_project(db_session: S
     graph = GraphService(db_session).build()
     matching_nodes = [node for node in graph.nodes if node.label == "Workflow Imagination"]
     edge_pairs = {(edge.source, edge.target, edge.relationship_type) for edge in graph.edges}
+    edge_origins = {edge.relationship_type: edge.origin for edge in graph.edges}
 
     assert len(matching_nodes) == 1
     assert matching_nodes[0].type == "project"
     assert not any(node.type == "source" and node.label == "Workflow Imagination" for node in graph.nodes)
     assert (f"project:{project.id}", f"task:{task.id}", "from_source") in edge_pairs
     assert not any(edge.source == edge.target for edge in graph.edges)
+    assert edge_origins["has_task"] == "project"
+    assert edge_origins["from_source"] == "source"
 
 
 def test_graph_links_relationship_nodes_to_their_source_raw_item(db_session: Session) -> None:
@@ -416,6 +421,7 @@ def test_create_manual_relationship_adds_traceable_graph_edge(db_session: Sessio
     assert relationship.relationship_type == "belongs_to"
     assert any(node.label == "Orphan card" for node in graph.nodes)
     assert ("entity:orphan-card", "project:workflow-imagination", "belongs_to") in edge_pairs
+    assert next(edge.origin for edge in graph.edges if edge.relationship_type == "belongs_to") == "manual"
 
 
 def test_graph_deduplicate_merges_projects_tags_and_relationships(db_session: Session) -> None:

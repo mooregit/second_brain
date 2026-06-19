@@ -73,6 +73,7 @@ class GraphService:
                     target=node_id,
                     label="has task",
                     relationship_type="has_task",
+                    origin="project",
                 )
 
         idea_query = select(Idea)
@@ -106,6 +107,7 @@ class GraphService:
                     target=node_id,
                     label="has idea",
                     relationship_type="has_idea",
+                    origin="project",
                 )
 
         for decision in self.db.scalars(select(Decision)).all():
@@ -138,6 +140,7 @@ class GraphService:
                     target=node_id,
                     label="has decision",
                     relationship_type="has_decision",
+                    origin="project",
                 )
 
         question_query = select(OpenQuestion)
@@ -173,6 +176,7 @@ class GraphService:
                     target=node_id,
                     label="has question",
                     relationship_type="has_question",
+                    origin="project",
                 )
 
         memories = self.db.scalars(
@@ -206,7 +210,7 @@ class GraphService:
                         edge_id = f"project-tag:{project_node_id}:{tag.id}"
                         edges.setdefault(
                             edge_id,
-                            GraphEdge(id=edge_id, source=project_node_id, target=tag_node_id, label="tagged", relationship_type="tagged"),
+                            GraphEdge(id=edge_id, source=project_node_id, target=tag_node_id, label="tagged", relationship_type="tagged", origin="tag"),
                         )
                 else:
                     nodes.setdefault(
@@ -221,7 +225,7 @@ class GraphService:
                     edge_id = f"source-tag:{memory.raw_item_id}:{tag.id}"
                     edges.setdefault(
                         edge_id,
-                        GraphEdge(id=edge_id, source=fallback_source_node_id, target=tag_node_id, label="tagged", relationship_type="tagged"),
+                        GraphEdge(id=edge_id, source=fallback_source_node_id, target=tag_node_id, label="tagged", relationship_type="tagged", origin="tag"),
                     )
 
         node_by_label = self._node_by_label(nodes, project_node_by_label)
@@ -260,6 +264,7 @@ class GraphService:
                 target=target_id,
                 label=rel.relationship_type,
                 relationship_type=rel.relationship_type,
+                origin=self._relationship_origin(rel),
             )
 
         return self._pruned_response(nodes, edges)
@@ -327,8 +332,14 @@ class GraphService:
         edge_id = f"source-derived:{raw_item_id}:{target_node_id}"
         edges.setdefault(
             edge_id,
-            GraphEdge(id=edge_id, source=source_node_id, target=target_node_id, label="from source", relationship_type="from_source"),
+            GraphEdge(id=edge_id, source=source_node_id, target=target_node_id, label="from source", relationship_type="from_source", origin="source"),
         )
+
+    def _relationship_origin(self, relationship: Relationship) -> str:
+        raw_item = self.db.get(RawItem, relationship.source_raw_item_id)
+        if isinstance(raw_item.metadata_json, dict) and raw_item.metadata_json.get("source") == "manual_graph_relationship":
+            return "manual"
+        return "extracted"
 
     def _project_node_id_for_source(self, raw_item: RawItem | None, project_nodes: dict[str, GraphNode], project_node_by_label: dict[str, str]) -> str | None:
         if not raw_item:

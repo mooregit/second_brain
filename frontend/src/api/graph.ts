@@ -4,7 +4,7 @@ export type GraphNode = { id: string; type: string; label: string; metadata: Rec
 
 export type GraphResponse = {
   nodes: GraphNode[];
-  edges: { id: string; source: string; target: string; label: string; relationship_type: string }[];
+  edges: { id: string; source: string; target: string; label: string; relationship_type: string; origin?: string; confidence?: number | null }[];
 };
 
 export function getGraph(showArchived = false) {

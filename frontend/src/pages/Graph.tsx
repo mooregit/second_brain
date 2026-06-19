@@ -8,16 +8,42 @@ import { deleteProject, patchProject } from '../api/views';
 import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
 
 const defaultTypes = ['project', 'task', 'idea', 'decision', 'question'];
+type GraphIntent = 'work' | 'source' | 'knowledge' | 'full';
+
+const graphIntentConfig: Record<GraphIntent, { label: string; types: string[]; origins: string[]; layout: GraphLayoutMode }> = {
+  work: {
+    label: 'Work graph',
+    types: ['project', 'task', 'idea', 'decision', 'question'],
+    origins: ['project', 'manual', 'extracted', 'relationship'],
+    layout: 'project'
+  },
+  source: {
+    label: 'Source graph',
+    types: ['source', 'project', 'task', 'idea', 'decision', 'question'],
+    origins: ['source', 'project', 'manual', 'extracted', 'relationship'],
+    layout: 'source'
+  },
+  knowledge: {
+    label: 'Knowledge graph',
+    types: ['project', 'task', 'idea', 'decision', 'question', 'tag', 'entity', 'person'],
+    origins: ['project', 'tag', 'manual', 'extracted', 'relationship'],
+    layout: 'cluster'
+  },
+  full: {
+    label: 'Full graph',
+    types: ['source', 'project', 'task', 'idea', 'decision', 'question', 'tag', 'entity', 'person'],
+    origins: ['source', 'project', 'tag', 'manual', 'extracted', 'relationship'],
+    layout: 'cluster'
+  }
+};
 
 export default function Graph() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showArchived, setShowArchived] = useState(false);
-  const [showSources, setShowSources] = useState(true);
-  const [showTags, setShowTags] = useState(true);
-  const [showEntities, setShowEntities] = useState(false);
+  const [graphIntent, setGraphIntent] = useState<GraphIntent>('work');
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('cluster');
+  const [layoutMode, setLayoutMode] = useState<GraphLayoutMode>('project');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,12 +92,9 @@ export default function Graph() {
       invalidateGraphData(queryClient);
     }
   });
-  const visibleTypes = new Set([
-    ...defaultTypes,
-    ...(showSources ? ['source'] : []),
-    ...(showTags ? ['tag'] : []),
-    ...(showEntities ? ['entity', 'person'] : [])
-  ]);
+  const intentConfig = graphIntentConfig[graphIntent];
+  const visibleTypes = new Set(intentConfig.types);
+  const visibleEdgeOrigins = new Set(intentConfig.origins);
   const projectOptions = useMemo(() => graph.data?.nodes.filter((node) => node.type === 'project').map((node) => ({ id: String(node.metadata.project_id ?? ''), label: node.label })).filter((project) => project.id) ?? [], [graph.data?.nodes]);
   const tagOptions = useMemo(() => graph.data?.nodes.filter((node) => node.type === 'tag').map((node) => node.label).sort((left, right) => left.localeCompare(right)) ?? [], [graph.data?.nodes]);
   const sourceTypeOptions = useMemo(() => {
@@ -89,11 +112,26 @@ export default function Graph() {
     }
     return [...relationshipTypes].sort();
   }, [graph.data?.edges]);
+  const visibleGraphEdges = useMemo(() => {
+    if (!graph.data) return [];
+    return graph.data.edges.filter((edge) => visibleEdgeOrigins.has(edge.origin ?? 'relationship') && (!relationshipTypeFilter || edge.relationship_type === relationshipTypeFilter));
+  }, [graph.data, relationshipTypeFilter, visibleEdgeOrigins]);
   const visibleNodeIds = useMemo(() => {
     if (!graph.data) return new Set<string>();
     return new Set(graph.data.nodes.filter((node) => passesGraphFilters(node, { projectFilter, tagFilter, sourceTypeFilter, dateFromFilter, dateToFilter })).map((node) => node.id));
   }, [dateFromFilter, dateToFilter, graph.data, projectFilter, sourceTypeFilter, tagFilter]);
   const visibleNodes = graph.data?.nodes.filter((node) => visibleTypes.has(node.type) && visibleNodeIds.has(node.id)) ?? [];
+  const orphanNodes = useMemo(() => {
+    if (!graph.data) return [];
+    const renderedNodeIds = new Set(visibleNodes.map((node) => node.id));
+    const connectedNodeIds = new Set<string>();
+    for (const edge of visibleGraphEdges) {
+      if (!renderedNodeIds.has(edge.source) || !renderedNodeIds.has(edge.target)) continue;
+      connectedNodeIds.add(edge.source);
+      connectedNodeIds.add(edge.target);
+    }
+    return visibleNodes.filter((node) => defaultTypes.includes(node.type) && !connectedNodeIds.has(node.id));
+  }, [graph.data, visibleGraphEdges, visibleNodes]);
 
   function selectNode(nodeId: string | null) {
     const node = graph.data?.nodes.find((candidate) => candidate.id === nodeId);
@@ -147,18 +185,6 @@ export default function Graph() {
             Show archived
           </label>
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={showSources} onChange={(event) => setShowSources(event.target.checked)} />
-            Source trace
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={showTags} onChange={(event) => setShowTags(event.target.checked)} />
-            Tags
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={showEntities} onChange={(event) => setShowEntities(event.target.checked)} />
-            Entities
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={showEdgeLabels} onChange={(event) => setShowEdgeLabels(event.target.checked)} />
             Edge labels
           </label>
@@ -181,6 +207,23 @@ export default function Graph() {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          View
+          <select
+            className="rounded-md border border-slate-300 px-2 py-2 text-sm"
+            value={graphIntent}
+            onChange={(event) => {
+              const nextIntent = event.target.value as GraphIntent;
+              setGraphIntent(nextIntent);
+              setLayoutMode(graphIntentConfig[nextIntent].layout);
+              setSelectedNodeId(null);
+            }}
+          >
+            {(Object.keys(graphIntentConfig) as GraphIntent[]).map((intent) => (
+              <option key={intent} value={intent}>{graphIntentConfig[intent].label}</option>
+            ))}
+          </select>
+        </label>
         <div className="relative min-w-[260px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-2.5 text-slate-400" size={16} />
           <input
@@ -230,6 +273,27 @@ export default function Graph() {
           </select>
         </label>
       </div>
+      {orphanNodes.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-medium text-amber-950">Needs connection</div>
+            <div className="text-xs text-amber-800">{orphanNodes.length} visible work nodes are not connected in this view.</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {orphanNodes.slice(0, 10).map((node) => (
+              <button
+                key={node.id}
+                type="button"
+                onClick={() => selectNode(node.id)}
+                className="rounded-md border border-amber-200 bg-white px-2 py-1 text-xs text-amber-950 hover:bg-amber-100"
+              >
+                {node.label}
+              </button>
+            ))}
+            {orphanNodes.length > 10 && <span className="px-2 py-1 text-xs text-amber-800">+{orphanNodes.length - 10} more</span>}
+          </div>
+        </div>
+      )}
       <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-6">
         <label className="block text-xs font-medium text-slate-600">
           Project
@@ -282,6 +346,7 @@ export default function Graph() {
             graph={graph.data}
             visibleTypes={visibleTypes}
             visibleNodeIds={visibleNodeIds}
+            visibleEdgeOrigins={visibleEdgeOrigins}
             relationshipTypeFilter={relationshipTypeFilter}
             layoutMode={layoutMode}
             showEdgeLabels={showEdgeLabels}

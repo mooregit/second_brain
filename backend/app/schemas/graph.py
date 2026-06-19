@@ -14,9 +14,10 @@ class GraphEdge(BaseModel):
     target: str
     label: str
     relationship_type: str
+    origin: str = "relationship"
+    confidence: float | None = None
 
 
 class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
-
