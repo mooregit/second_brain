@@ -99,7 +99,7 @@
 - [x] Add Ollama model selection in Settings for extraction/Ask and embedding models.
 - [x] Add backend endpoint to list installed Ollama models and identify completion vs embedding-capable models.
 - [x] Add model recommendation copy in Settings for default, faster, and higher-quality local model choices.
-- [ ] Add optional background Gmail polling when Gmail is enabled.
+- [x] Add optional background Gmail polling when Gmail is enabled.
 - [ ] Add Gmail draft creation implementation.
 - [ ] Log every draft creation in `audit_logs`.
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.api.routes.items import delete_item
 from app.core.database import Base
 from app.models import EmailMessage, FileAsset, RawItem
+from app.services.gmail_poller import GmailPoller
 from app.services.gmail_service import GmailService
 from app.services.settings_service import SettingsService
 
@@ -155,6 +156,52 @@ def test_gmail_oauth_flow_does_not_try_to_open_browser(db_session: Session) -> N
     assert flow.kwargs["open_browser"] is False
     assert flow.kwargs["bind_addr"] == "0.0.0.0"
     assert flow.kwargs["port"] == 8090
+
+
+def test_gmail_poller_skips_when_gmail_disabled(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    called = False
+
+    async def fake_sync(self: GmailService, max_results: int = 10, auto_process: bool | None = None, client=None) -> dict:
+        nonlocal called
+        called = True
+        return {}
+
+    monkeypatch.setattr(GmailService, "sync", fake_sync)
+
+    result = asyncio.run(GmailPoller(lambda: db_session).poll_once())
+
+    assert result == {"status": "disabled", "synced": False}
+    assert called is False
+
+
+def test_gmail_poller_syncs_when_gmail_enabled(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    SettingsService(db_session).set_gmail_enabled(True)
+
+    async def fake_sync(self: GmailService, max_results: int = 10, auto_process: bool | None = None, client=None) -> dict:
+        return {
+            "status": "succeeded",
+            "query": "label:SecondBrain",
+            "auto_process": True,
+            "max_results": max_results,
+            "synced_at": "2026-06-19T00:00:00+00:00",
+            "imported_count": 0,
+            "skipped_count": 0,
+            "processed_count": 0,
+            "failed_count": 0,
+            "imported_items": [],
+            "skipped_message_ids": [],
+            "processed_item_ids": [],
+            "failures": [],
+        }
+
+    monkeypatch.setattr(GmailService, "sync", fake_sync)
+
+    result = asyncio.run(GmailPoller(lambda: db_session, max_results=3).poll_once())
+
+    assert result["synced"] is True
+    assert result["status"] == "succeeded"
+    assert result["max_results"] == 3
+    assert "imported_items" not in result
 
 
 def _gmail_message(message_id: str, subject: str, body: str, from_email: str = "sender@example.com") -> dict:
