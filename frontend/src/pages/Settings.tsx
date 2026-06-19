@@ -1,20 +1,25 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Save } from 'lucide-react';
-import { getSettings, patchSettings } from '../api/views';
+import { getSettings, listOllamaModels, patchSettings } from '../api/views';
 
 export default function Settings() {
   const [inboxFolder, setInboxFolder] = useState('');
+  const [extractionModel, setExtractionModel] = useState('');
+  const [embeddingModel, setEmbeddingModel] = useState('');
   const [gmailEnabled, setGmailEnabled] = useState(false);
   const [gmailLabel, setGmailLabel] = useState('');
   const [gmailQuery, setGmailQuery] = useState('');
   const [gmailAutoProcess, setGmailAutoProcess] = useState(true);
   const queryClient = useQueryClient();
   const settings = useQuery({ queryKey: ['settings'], queryFn: getSettings });
+  const ollamaModels = useQuery({ queryKey: ['ollama-models'], queryFn: listOllamaModels, retry: false });
   const saveSettings = useMutation({
     mutationFn: () =>
       patchSettings({
         inbox_folder: inboxFolder,
+        ollama_extraction_model: extractionModel,
+        ollama_embedding_model: embeddingModel,
         gmail_enabled: gmailEnabled,
         gmail_label: gmailLabel,
         gmail_query: gmailQuery,
@@ -22,6 +27,8 @@ export default function Settings() {
       }),
     onSuccess: (data) => {
       setInboxFolder(data.inbox_folder);
+      setExtractionModel(data.ollama_extraction_model);
+      setEmbeddingModel(data.ollama_embedding_model);
       setGmailEnabled(data.gmail_enabled);
       setGmailLabel(data.gmail_label);
       setGmailQuery(data.gmail_query);
@@ -33,6 +40,8 @@ export default function Settings() {
   useEffect(() => {
     if (settings.data) {
       setInboxFolder(settings.data.inbox_folder);
+      setExtractionModel(settings.data.ollama_extraction_model);
+      setEmbeddingModel(settings.data.ollama_embedding_model);
       setGmailEnabled(settings.data.gmail_enabled);
       setGmailLabel(settings.data.gmail_label);
       setGmailQuery(settings.data.gmail_query);
@@ -92,6 +101,36 @@ export default function Settings() {
               />
             </label>
             <div className="grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
+              <label className="block text-sm font-medium text-slate-700">
+                Extraction / Ask model
+                {ollamaModels.data?.completion_models.length ? (
+                  <select className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" value={extractionModel} onChange={(event) => setExtractionModel(event.target.value)}>
+                    {ollamaModels.data.completion_models.map((model) => (
+                      <option key={model.name} value={model.name}>{model.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" value={extractionModel} onChange={(event) => setExtractionModel(event.target.value)} />
+                )}
+              </label>
+              <label className="block text-sm font-medium text-slate-700">
+                Embedding model
+                {ollamaModels.data?.embedding_models.length ? (
+                  <select className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" value={embeddingModel} onChange={(event) => setEmbeddingModel(event.target.value)}>
+                    {ollamaModels.data.embedding_models.map((model) => (
+                      <option key={model.name} value={model.name}>{model.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" value={embeddingModel} onChange={(event) => setEmbeddingModel(event.target.value)} />
+                )}
+              </label>
+              <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600 md:col-span-2">
+                Recommended defaults: `qwen3:8b` for extraction and Ask, `nomic-embed-text` for embeddings. Use `llama3.1:8b` as a fallback completion model, smaller models for speed, and larger Qwen/Gemma/Mistral models when extraction quality matters more than latency.
+              </div>
+              {ollamaModels.error && <p className="text-sm text-amber-700 md:col-span-2">Could not list installed Ollama models. Manual model names are still accepted.</p>}
+            </div>
+            <div className="grid gap-3 border-t border-slate-200 pt-4 md:grid-cols-2">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 <input type="checkbox" checked={gmailEnabled} onChange={(event) => setGmailEnabled(event.target.checked)} />
                 Gmail enabled
@@ -110,7 +149,7 @@ export default function Settings() {
               </label>
             </div>
             <button
-              disabled={saveSettings.isPending || !inboxFolder.trim()}
+              disabled={saveSettings.isPending || !inboxFolder.trim() || !extractionModel.trim() || !embeddingModel.trim()}
               className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50"
             >
               {saveSettings.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

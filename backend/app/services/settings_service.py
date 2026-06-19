@@ -15,6 +15,8 @@ class SettingsService:
     GMAIL_QUERY_KEY = "gmail_query"
     GMAIL_AUTO_PROCESS_KEY = "gmail_auto_process"
     GMAIL_LAST_SYNC_KEY = "gmail_last_sync_result"
+    OLLAMA_EXTRACTION_MODEL_KEY = "ollama_extraction_model"
+    OLLAMA_EMBEDDING_MODEL_KEY = "ollama_embedding_model"
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -25,6 +27,18 @@ class SettingsService:
 
     def set_inbox_folder(self, value: str) -> str:
         return self._set(self.INBOX_FOLDER_KEY, value.strip())
+
+    def get_ollama_extraction_model(self) -> str:
+        return self._get(self.OLLAMA_EXTRACTION_MODEL_KEY, self.env_settings.ollama_extraction_model)
+
+    def set_ollama_extraction_model(self, value: str) -> str:
+        return self._set(self.OLLAMA_EXTRACTION_MODEL_KEY, value.strip())
+
+    def get_ollama_embedding_model(self) -> str:
+        return self._get(self.OLLAMA_EMBEDDING_MODEL_KEY, self.env_settings.ollama_embedding_model)
+
+    def set_ollama_embedding_model(self, value: str) -> str:
+        return self._set(self.OLLAMA_EMBEDDING_MODEL_KEY, value.strip())
 
     def get_gmail_enabled(self) -> bool:
         return self._get_bool(self.GMAIL_ENABLED_KEY, self.env_settings.gmail_enabled)
@@ -100,8 +114,8 @@ class SettingsService:
         token_exists = self._path(self.env_settings.gmail_token_path).exists()
         return {
             "ollama_base_url": self.env_settings.ollama_base_url,
-            "ollama_extraction_model": self.env_settings.ollama_extraction_model,
-            "ollama_embedding_model": self.env_settings.ollama_embedding_model,
+            "ollama_extraction_model": self.get_ollama_extraction_model(),
+            "ollama_embedding_model": self.get_ollama_embedding_model(),
             "inbox_folder": self.get_inbox_folder(),
             "gmail_enabled": self.get_gmail_enabled(),
             "gmail_label": self.get_gmail_label(),

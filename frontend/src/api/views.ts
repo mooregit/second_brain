@@ -41,6 +41,25 @@ export type Settings = {
   } | null;
 };
 
+export type OllamaModelInfo = {
+  name: string;
+  model: string;
+  size: number | null;
+  modified_at: string | null;
+  capabilities: string[];
+  supports_completion: boolean;
+  supports_embedding: boolean;
+  parameter_size?: string | null;
+  context_length?: number | null;
+  embedding_length?: number | null;
+};
+
+export type OllamaModelsResponse = {
+  models: OllamaModelInfo[];
+  completion_models: OllamaModelInfo[];
+  embedding_models: OllamaModelInfo[];
+};
+
 export const listProjects = () => api<Project[]>('/projects');
 export const patchProject = (projectId: string, payload: { name?: string; description?: string | null }) =>
   api<Project>(`/projects/${projectId}`, {
@@ -53,7 +72,8 @@ export const listIdeas = () => api<Idea[]>('/ideas');
 export const listDecisions = () => api<Decision[]>('/decisions');
 export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
 export const getSettings = () => api<Settings>('/settings');
-export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder' | 'gmail_enabled' | 'gmail_label' | 'gmail_query' | 'gmail_auto_process'>>) =>
+export const listOllamaModels = () => api<OllamaModelsResponse>('/settings/ollama/models');
+export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder' | 'ollama_extraction_model' | 'ollama_embedding_model' | 'gmail_enabled' | 'gmail_label' | 'gmail_query' | 'gmail_auto_process'>>) =>
   api<Settings>('/settings', {
     method: 'PATCH',
     body: JSON.stringify(payload)

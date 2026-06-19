@@ -3,12 +3,14 @@ from app.schemas.ask import AskResponse, AskSource
 from app.models import AskRun
 from app.services.ollama_client import OllamaClient
 from app.services.retrieval_service import RetrievalService
+from app.services.settings_service import SettingsService
 
 
 class AskService:
     def __init__(self, db) -> None:
         self.db = db
         self.settings = get_settings()
+        self.app_settings = SettingsService(db)
         self.ollama = OllamaClient()
         self.retrieval = RetrievalService(db)
 
@@ -24,7 +26,7 @@ class AskService:
             for idx, match in enumerate(matches)
         )
         prompt = self._prompt("ask.md").replace("{{question}}", question).replace("{{context}}", context)
-        answer = await self.ollama.generate(self.settings.ollama_extraction_model, prompt)
+        answer = await self.ollama.generate(self.app_settings.get_ollama_extraction_model(), prompt)
         response = AskResponse(
             answer=answer.strip(),
             sources=[

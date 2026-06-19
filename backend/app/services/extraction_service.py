@@ -12,18 +12,21 @@ from app.schemas.extraction import ExtractionResult
 from app.services.embedding_service import EmbeddingService
 from app.services.media_analysis_service import MediaAnalysisService
 from app.services.ollama_client import OllamaClient
+from app.services.settings_service import SettingsService
 
 
 class ExtractionService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.settings = get_settings()
+        self.app_settings = SettingsService(db)
         self.ollama = OllamaClient()
         self.embedding_service = EmbeddingService(db)
 
     async def process_item(self, item: RawItem) -> Memory:
         item.status = "processing"
-        run = ProcessingRun(raw_item_id=item.id, status="started", model=self.settings.ollama_extraction_model)
+        extraction_model = self.app_settings.get_ollama_extraction_model()
+        run = ProcessingRun(raw_item_id=item.id, status="started", model=extraction_model)
         self.db.add(run)
         self.db.commit()
 
@@ -32,7 +35,7 @@ class ExtractionService:
         extraction_prompt = self._prompt("extraction.md").replace("{{title}}", item.title).replace("{{body}}", prompt_body)
         raw_output = ""
         try:
-            raw_output = await self.ollama.generate(self.settings.ollama_extraction_model, extraction_prompt)
+            raw_output = await self.ollama.generate(extraction_model, extraction_prompt)
             parsed = self._normalize_extraction_payload(self._parse(raw_output), item.title)
             result = ExtractionResult.model_validate(parsed)
         except (json.JSONDecodeError, ValidationError) as exc:
@@ -42,7 +45,7 @@ class ExtractionService:
                 .replace("{{invalid_output}}", raw_output)
             )
             try:
-                repaired_output = await self.ollama.generate(self.settings.ollama_extraction_model, repair_prompt)
+                repaired_output = await self.ollama.generate(extraction_model, repair_prompt)
                 parsed = self._normalize_extraction_payload(self._parse(repaired_output), item.title)
                 result = ExtractionResult.model_validate(parsed)
                 raw_output = f"{raw_output}\n\n--- repaired ---\n{repaired_output}"

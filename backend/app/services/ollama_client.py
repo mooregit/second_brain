@@ -19,3 +19,29 @@ class OllamaClient:
             response.raise_for_status()
             return response.json()["embedding"]
 
+    async def list_models(self) -> list[dict]:
+        async with httpx.AsyncClient(base_url=self.settings.ollama_base_url, timeout=10) as client:
+            response = await client.get("/api/tags")
+            response.raise_for_status()
+            models = response.json().get("models", [])
+        return [self._model_info(model) for model in models]
+
+    def _model_info(self, model: dict) -> dict:
+        capabilities = model.get("capabilities") or []
+        details = model.get("details") or {}
+        name = model.get("name") or model.get("model") or ""
+        supports_embedding = "embedding" in capabilities
+        supports_completion = "completion" in capabilities or not capabilities
+        return {
+            "name": name,
+            "model": model.get("model") or name,
+            "size": model.get("size"),
+            "modified_at": model.get("modified_at"),
+            "details": details,
+            "capabilities": capabilities,
+            "supports_completion": supports_completion,
+            "supports_embedding": supports_embedding,
+            "parameter_size": details.get("parameter_size"),
+            "context_length": details.get("context_length"),
+            "embedding_length": details.get("embedding_length"),
+        }
