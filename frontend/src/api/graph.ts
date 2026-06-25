@@ -11,6 +11,41 @@ export function getGraph(showArchived = false) {
   return api<GraphResponse>(`/graph?show_archived=${showArchived}`);
 }
 
+export type GraphInsightsResponse = {
+  duplicate_candidates: {
+    node_type: string;
+    canonical_label: string;
+    labels: string[];
+    node_ids: string[];
+    reason: string;
+  }[];
+  relationship_normalizations: {
+    original_type: string;
+    normalized_type: string;
+    count: number;
+  }[];
+  unassigned_work_items: {
+    id: string;
+    type: string;
+    label: string;
+    memory_id: string;
+    source_title?: string | null;
+  }[];
+  project_summaries: {
+    project_id: string;
+    name: string;
+    open_tasks: number;
+    open_questions: number;
+    active_ideas: number;
+    decisions: number;
+    risk_flags: string[];
+  }[];
+};
+
+export function getGraphInsights(showArchived = false) {
+  return api<GraphInsightsResponse>(`/graph/insights?show_archived=${showArchived}`);
+}
+
 export function renameGraphTag(tagId: string, name: string) {
   return api<{ status: string; id: string; name: string }>(`/graph/tags/${tagId}`, {
     method: 'PATCH',
@@ -60,4 +95,8 @@ export type GraphDeduplicateResult = {
 
 export function deduplicateGraph() {
   return api<GraphDeduplicateResult>('/graph/deduplicate', { method: 'POST' });
+}
+
+export function normalizeGraphRelationships() {
+  return api<{ status: string; updated: number }>('/graph/relationships/normalize', { method: 'POST' });
 }

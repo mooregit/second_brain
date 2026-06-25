@@ -38,6 +38,7 @@
 - [x] Add editable idea fields in `ExtractionReview`.
 - [x] Add editable open question fields in `ExtractionReview`.
 - [x] Add source links for every extracted child record in review UI.
+- [ ] Add a review action to create a new project directly from a processed memory or extracted project suggestion.
 - [x] Add edit/delete/archive controls for memories, projects, tasks, ideas, decisions, and questions from their native pages.
 - [x] Add project reassignment controls for tasks, ideas, decisions, and questions outside the graph drawer.
 
@@ -127,12 +128,16 @@
 - [x] Add a processing queue with `pending`, `processing`, `processed`, and `failed` states.
 - [x] Move long-running processing for Gmail/video/folder imports behind the processing queue.
 - [x] Add retry, cancel, and reprocess actions for failed or stale processing jobs.
+- [ ] Add a reprocess failed ingestions workflow that finds failed raw items/imports, shows the connector/source error, and retries ingestion or queues extraction again.
 - [ ] Improve extraction diagnostics with prompt input/context, transcript context, raw model output, repaired output, validation errors, and parsed JSON.
 - [ ] Add "reprocess with edited context" from item detail.
+- [ ] Fix large file upload handling for PDFs and other documents: raise nginx `client_max_body_size`, align backend upload limits, show a clear UI error for 413 responses, and document the configured max upload size.
 - [ ] Add duplicate detection for projects, tags, people, URLs, and entities.
 - [ ] Add merge UI for duplicate projects, tags, people, URLs, and entities.
 - [ ] Add stronger project detail pages with timeline, source notes/emails/files, open tasks, questions, decisions, ideas, and a related graph slice.
 - [ ] Add a Settings/import setup wizard that detects Ollama models, Gmail credentials/token status, connector health, and missing setup steps.
+- [ ] Add hardware-aware Ollama model recommendations in Settings, including notes that `gpt-oss:20b` is MXFP4-quantized but still heavy/experimental on 16GB RAM and 8GB VRAM.
+- [ ] Add model profiles such as fast/local-small, balanced/default, higher-quality, and experimental-heavy with recommended extraction/Ask/vision/embedding model choices.
 
 ## Ask Improvements
 
@@ -142,14 +147,31 @@
 - [ ] Let useful Ask answers be saved as memories or decisions.
 - [ ] Add Ask answer feedback so bad retrieval/extraction examples can be diagnosed later.
 
+## Action Items And Prompt Generation
+
+- [ ] Add a first-class action item layer that can wrap or reference tasks, open questions, ideas, decisions, GitHub issues/PRs, and other work records without removing them from the knowledge base.
+- [ ] Let tasks, questions, ideas, and decisions be promoted into actionable work while preserving the original source-linked memory record.
+- [ ] Add completion states for action items such as `open`, `in_progress`, `blocked`, `completed`, `archived`, and `wont_do`.
+- [ ] When an action item is completed, keep it searchable and visible in project history, graph context, Ask retrieval, and project briefs instead of deleting or hiding its knowledge value.
+- [ ] Add completion metadata: completed_at, completion_note, outcome/decision, source links, and optional follow-up tasks/questions.
+- [ ] Add UI controls to complete action items from native pages, project briefs, graph drawer, and extracted review panels.
+- [ ] Add project brief sections for active action items, recently completed action items, blocked action items, and stale action items.
+- [ ] Add Graphify rules that suggest action items from open questions, ideas without tasks, failed GitHub Actions runs, stale PRs, and unresolved project flags.
+- [ ] Add a "Generate Prompt" action for tasks, open questions, ideas, decisions, project flags, GitHub issues/PRs, and action items.
+- [ ] Use the configured local LLM to generate structured prompts that include objective, background, relevant source context, constraints, known decisions, open questions, acceptance criteria, and suggested next steps.
+- [ ] Support prompt targets such as Codex, Claude, ChatGPT, generic engineering agent, and concise/manual mode.
+- [ ] Let generated prompts include source citations and linked raw item IDs so pasted prompts preserve traceability.
+- [ ] Add prompt preview/edit/copy UI and store generated prompts as source-linked artifacts for later reuse.
+- [ ] Add tests for action item promotion, completion preservation, prompt payload assembly, and local-LLM prompt generation fallbacks.
+
 ## Connector And Import Backlog
 
 - [ ] Add a generic connector model/service so every integration creates `RawItem`, optional `FileAsset`, and source metadata before processing.
+- [ ] Add assistant/Codex session archive import: save full session transcripts as source records, extract decisions/tasks/questions/ideas, preserve repo/project/file metadata, and link sessions into the graph.
 - [ ] Add Markdown folder import for Obsidian, Logseq, and plain `.md` note folders.
 - [ ] Add local file import support for `.txt`, `.md`, `.html`, `.csv`, and `.json`.
 - [ ] Add Google Drive import for docs, files, videos, and watched folders.
 - [ ] Add NotebookLM import workflow: import original NotebookLM source files through Google Drive where possible, support manual upload of NotebookLM notes/briefing docs/study guides/FAQs/exported summaries, investigate shared/public notebook link ingestion, and preserve notebook title/source URL metadata.
-- [ ] Add browser bookmark/read-later imports from Chrome bookmarks, Pocket, Instapaper, and Raindrop exports.
 - [ ] Add Notion import through the official Notion API for selected pages and databases.
 - [ ] Add Google Calendar import for meetings, events, descriptions, and attendees.
 - [ ] Add Google Docs import for project notes, specs, and meeting docs.
@@ -160,12 +182,14 @@
 - [ ] Add Jira import for issues, projects, comments, and statuses.
 - [ ] Add Trello import for boards, cards, lists, comments, and labels.
 - [ ] Add RSS feed import for articles, blogs, changelogs, and release notes.
+- [ ] Add Flipboard saved-article import for saved/flipped articles via export, RSS/share links, or manual URL-list fallback.
 - [ ] Add Readwise/Reader import for highlights, saved articles, and notes.
 - [ ] Add Kindle highlights import.
 - [ ] Add YouTube transcript import from video URLs.
 - [ ] Add podcast transcript import from audio files or transcript URLs.
 - [ ] Add meeting transcript import for Zoom, Google Meet, Otter, Fireflies, Granola, and similar exports.
 - [x] Add PDF import with text extraction first, OCR later.
+- [ ] Add `.epub` upload/import support with text extraction, metadata preservation, and chapter-aware source records.
 - [ ] Add ebook import with text extraction first.
 - [ ] Add long-document/book ingestion with document metadata, section/chapter/page chunking, per-chunk embeddings, staged extraction, and source-linked book notes.
 - [ ] Add OCR for scanned PDFs/images later.
@@ -182,6 +206,27 @@
 - [ ] Add banking export import for CSV transaction files.
 - [ ] Add support inbox import for support emails, tickets, and customer conversations.
 - [ ] Add website analytics export import for traffic, conversions, and reporting snapshots.
+
+## Bookmark And Read-Later Ingestion
+
+- [ ] Add bookmark import from Chrome, Edge, Brave, Firefox, and Safari bookmark HTML exports.
+- [ ] Add read-later import from Pocket, Instapaper, Raindrop, and Readwise Reader exports/APIs.
+- [ ] Add manual URL-list paste/import flow.
+- [ ] Parse bookmark title, URL, folder path, date added, source browser/import type, and optional notes.
+- [ ] Add URL normalization and duplicate detection by canonicalized URL.
+- [ ] Strip common tracking parameters such as `utm_*` during duplicate checks.
+- [ ] Add reference-only import mode that stores bookmark metadata without fetching page content.
+- [ ] Add optional fetch-and-analyze mode for page title, description, readable article text, and canonical URL.
+- [ ] Add optional auto-process setting for imported bookmarks.
+- [ ] Create `RawItem` records with `source_type=bookmark`, `source_uri=url`, and bookmark metadata.
+- [ ] Preserve multiple bookmark folders/sources when the same URL appears more than once.
+- [ ] Add bookmark dashboard/list view with filters for folder, domain, project, tag, source browser, status, date added, processed/unprocessed, and duplicate URL.
+- [ ] Add read-later status values such as `unread`, `reading`, `reviewed`, and `archived`.
+- [ ] Add batch process, archive, and assign-to-project controls for bookmarks.
+- [ ] Add graph behavior for bookmark/source nodes, domain nodes, tags, projects, generated tasks, and raised questions.
+- [ ] Add graph edges such as `from_domain`, `relates_to`, `tagged`, `suggested_task`, and `raises`.
+- [ ] Add “why did I save this?” assistant workflow that infers likely purpose from page content and existing SecondBrain context.
+- [ ] Add tests for Chrome/Firefox/Safari bookmark HTML parsing and URL duplicate normalization.
 
 ## Source-To-Markdown And Obsidian Export
 
@@ -202,18 +247,51 @@
 - [ ] Add batch conversion for folders of PDFs, EPUBs, DOCX files, and HTML files.
 - [ ] Add tests for source metadata preservation, chunk splitting, and Obsidian frontmatter/backlink output.
 
+## Notion Export
+
+- [ ] Add Notion as an optional publish/export target, distinct from local Markdown/Obsidian export.
+- [ ] Store Notion integration token, parent page ID, and optional database IDs in local settings.
+- [ ] Add a `notion_exports` tracking table for local entity type/id to Notion page/database row ID.
+- [ ] Export individual memories as Notion pages.
+- [ ] Export projects as Notion pages or database rows.
+- [ ] Export tasks, decisions, and open questions as Notion database rows.
+- [ ] Export source-to-Markdown packages into Notion page/block structures.
+- [ ] Preserve `raw_item_id`, source URI, source type, memory ID, tags, project, timestamps, and confidence as Notion properties where possible.
+- [ ] Store returned Notion page IDs so re-export updates existing pages instead of creating duplicates.
+- [ ] Add manual export modes for one memory, one project, all reviewed records, and source-to-Markdown packages.
+- [ ] Add export diagnostics for Notion API errors, rate limits, skipped records, and updated/created page counts.
+- [ ] Add tests for Notion payload mapping without calling the live Notion API.
+
 ## Agent Context Integrations
 
+- [ ] Add a "Save Session to Second Brain" workflow for Codex/Claude/ChatGPT sessions that stores raw transcript, summary, decisions, tasks, open questions, touched files, repo/branch metadata, and generated prompts.
+- [x] Add an `agents/` or `integrations/agents/` directory with packaged install artifacts for Codex, MCP, CLI, and repo-local project mapping.
+- [x] Add initial Codex agent Python scripts for project context extraction, Ask/search, saving session transcripts, and preview-gated task/decision creation.
+- [x] Add agent scripts for project listing, prompt generation, and preview-gated open-question creation.
+- [x] Add session-aware write-back using latest saved session state and a unified preview-gated `write_back.py`.
+- [x] Add Codex agent operating instructions covering context fetch, prompt generation, session saving, write-back previews, and approval safety rules.
+- [x] Add a Codex skill template that defines when to query SecondBrain, how to fetch project context, and how to record decisions/tasks back.
+- [x] Add MCP server config templates for read-only and write-enabled modes.
+- [ ] Add CLI environment/config templates for local `secondbrain` usage.
+- [x] Add repo-local `.secondbrain.yml` template for mapping repositories to SecondBrain projects, tags, and search scopes.
+- [x] Add install script or CLI command such as `secondbrain install-agent codex` that copies agent templates after explicit confirmation.
+- [x] Make installed agent files user-editable while keeping repo-shipped templates versioned and replaceable.
+- [x] Add agent installer update behavior that detects local modifications and offers keep, diff, backup-and-replace, or install-as-new options.
+- [x] Add reset-to-default and diff-against-template commands for installed agent files.
+- [x] Add user config overlay files such as `~/.config/secondbrain/agents/codex.yml` for common behavior settings without editing the full skill.
+- [x] Add project-level `.secondbrain.yml` support for per-repo project scope, tags, write permissions, and search preferences.
+- [x] Add safety documentation for read-only tools, write tools, approval gates, local allowlists, and avoiding silent agent config edits.
+- [x] Add template validation tests or lint checks so packaged agent files stay usable.
 - [ ] Add backend endpoints for project context lookup, semantic search, and creating notes/tasks/decisions from external tools.
 - [ ] Add a local `secondbrain` CLI for `search`, `ask`, `project`, `add-note`, `add-task`, and `add-decision`.
-- [ ] Add a read-only MCP context server for `secondbrain_search`, `secondbrain_ask`, and `secondbrain_get_project_context`.
+- [x] Add a read-only MCP context server for `secondbrain_search`, `secondbrain_ask`, and `secondbrain_get_project_context`.
 - [ ] Add MCP tools for fetching source-linked raw items, project tasks, decisions, open questions, and recent changes.
-- [ ] Add explicit approval gates before enabling MCP write tools.
-- [ ] Add MCP write tools for `secondbrain_create_note`, `secondbrain_create_task`, `secondbrain_record_decision`, and `secondbrain_create_open_question`.
-- [ ] Add a Codex skill that teaches Codex when and how to query Second Brain for project context before coding.
-- [ ] Add Codex skill workflows for pulling related decisions, tasks, open questions, and source notes.
-- [ ] Add Codex skill workflows for saving implementation decisions and follow-up tasks back to Second Brain.
-- [ ] Add support for repo-local `.secondbrain.yml` files that map code repos to Second Brain projects, tags, and search scopes.
+- [x] Add explicit approval gates before enabling MCP write tools.
+- [x] Add MCP write tools for `secondbrain_create_note`, `secondbrain_create_task`, `secondbrain_record_decision`, and `secondbrain_create_open_question`.
+- [x] Add a Codex skill that teaches Codex when and how to query Second Brain for project context before coding.
+- [x] Add Codex skill workflows for pulling related decisions, tasks, open questions, and source notes.
+- [x] Add Codex skill workflows for saving implementation decisions and follow-up tasks back to Second Brain.
+- [x] Add support for repo-local `.secondbrain.yml` files that map code repos to Second Brain projects, tags, and search scopes.
 - [ ] Add CLI/MCP authentication or local allowlist controls before exposing write actions.
 - [ ] Add README documentation for using Second Brain as context memory for Codex and other local CLI agents.
 

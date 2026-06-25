@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models import Decision, Idea, Memory, OpenQuestion, Project, RawItem, Relationship, Tag, Task
-from app.schemas.graph import GraphResponse
+from app.schemas.graph import GraphInsightsResponse, GraphResponse
+from app.services.graph_insights_service import GraphInsightsService
 from app.services.graph_service import GraphService
 
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -37,6 +38,11 @@ class ManualRelationshipCreate(BaseModel):
 @router.get("", response_model=GraphResponse)
 def graph(show_archived: bool = False, db: Session = Depends(get_db)) -> GraphResponse:
     return GraphService(db).build(show_archived=show_archived)
+
+
+@router.get("/insights", response_model=GraphInsightsResponse)
+def graph_insights(show_archived: bool = False, db: Session = Depends(get_db)) -> GraphInsightsResponse:
+    return GraphInsightsService(db).build(show_archived=show_archived)
 
 
 @router.post("/relationships")
@@ -117,6 +123,18 @@ def deduplicate_graph(db: Session = Depends(get_db)) -> dict:
     db.commit()
     result["status"] = "deduplicated"
     return result
+
+
+@router.post("/relationships/normalize")
+def normalize_relationships(db: Session = Depends(get_db)) -> dict:
+    updated = 0
+    for relationship in db.scalars(select(Relationship)).all():
+        normalized = GraphInsightsService.normalize_relationship_type(relationship.relationship_type)
+        if relationship.relationship_type != normalized:
+            relationship.relationship_type = normalized
+            updated += 1
+    db.commit()
+    return {"status": "normalized", "updated": updated}
 
 
 @router.patch("/tags/{tag_id}")

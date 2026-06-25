@@ -1,9 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Archive, GitMerge, ExternalLink, Loader2, Save, Search, Trash2, X } from 'lucide-react';
-import { createGraphRelationship, deduplicateGraph, deleteGraphLabel, deleteGraphTag, GraphNode, getGraph, renameGraphLabel, renameGraphTag } from '../api/graph';
-import { deleteDecision, deleteIdea, deleteQuestion, deleteTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
+import { Archive, CheckSquare, GitMerge, ExternalLink, Loader2, Save, Search, Sparkles, Trash2, X } from 'lucide-react';
+import {
+  createGraphRelationship,
+  deduplicateGraph,
+  deleteGraphLabel,
+  deleteGraphTag,
+  GraphInsightsResponse,
+  GraphNode,
+  getGraph,
+  getGraphInsights,
+  normalizeGraphRelationships,
+  renameGraphLabel,
+  renameGraphTag
+} from '../api/graph';
+import { createTask, deleteDecision, deleteIdea, deleteQuestion, deleteTask, patchDecision, patchIdea, patchQuestion, patchTask } from '../api/review';
 import { deleteProject, patchProject } from '../api/views';
 import GraphCanvas, { type GraphLayoutMode } from '../components/GraphCanvas';
 
@@ -59,6 +71,7 @@ export default function Graph() {
   const [manualRelationshipDirection, setManualRelationshipDirection] = useState<'out' | 'in'>('out');
   const [dedupeMessage, setDedupeMessage] = useState('');
   const graph = useQuery({ queryKey: ['graph', showArchived], queryFn: () => getGraph(showArchived) });
+  const insights = useQuery({ queryKey: ['graph-insights', showArchived], queryFn: () => getGraphInsights(showArchived) });
   const selectedNode = graph.data?.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const editMutation = useMutation({
     mutationFn: ({ node, label }: { node: GraphNode; label: string }) => patchGraphNode(node, label),
@@ -91,6 +104,25 @@ export default function Graph() {
       setLabelDraft('');
       invalidateGraphData(queryClient);
     }
+  });
+  const normalizeRelationshipsMutation = useMutation({
+    mutationFn: normalizeGraphRelationships,
+    onSuccess: (result) => {
+      setDedupeMessage(`Normalized ${result.updated} relationship labels.`);
+      invalidateGraphData(queryClient);
+    }
+  });
+  const assignInsightMutation = useMutation({
+    mutationFn: ({ item, projectId }: { item: GraphInsightsResponse['unassigned_work_items'][number]; projectId: string }) =>
+      assignInsightWorkItem(item, projectId),
+    onSuccess: () => invalidateGraphData(queryClient)
+  });
+  const promoteIdeaMutation = useMutation({
+    mutationFn: async (item: GraphInsightsResponse['unassigned_work_items'][number]) => {
+      await createTask({ memory_id: item.memory_id, title: item.label, status: 'open' });
+      await patchIdea(item.id, { status: 'archived' });
+    },
+    onSuccess: () => invalidateGraphData(queryClient)
   });
   const intentConfig = graphIntentConfig[graphIntent];
   const visibleTypes = new Set(intentConfig.types);
@@ -173,6 +205,18 @@ export default function Graph() {
     };
     const route = routeByType[node.type];
     if (route) navigate(route);
+  }
+
+  function focusWorkItem(item: GraphInsightsResponse['unassigned_work_items'][number]) {
+    const metadataKeyByType: Record<string, string> = {
+      task: 'task_id',
+      idea: 'idea_id',
+      decision: 'decision_id',
+      question: 'question_id'
+    };
+    const metadataKey = metadataKeyByType[item.type];
+    const node = graph.data?.nodes.find((candidate) => metadataKey && stringMetadata(candidate, metadataKey) === item.id);
+    if (node) selectNode(node.id);
   }
 
   return (
@@ -294,6 +338,21 @@ export default function Graph() {
           </div>
         </div>
       )}
+      <GraphifyInsightsPanel
+        insights={insights.data ?? null}
+        isLoading={insights.isLoading}
+        error={insights.error?.message ?? normalizeRelationshipsMutation.error?.message ?? assignInsightMutation.error?.message ?? promoteIdeaMutation.error?.message}
+        projectOptions={projectOptions}
+        isApplyingCleanup={deduplicateMutation.isPending || normalizeRelationshipsMutation.isPending}
+        isAssigning={assignInsightMutation.isPending}
+        isPromotingIdea={promoteIdeaMutation.isPending}
+        onFocusNode={selectNode}
+        onFocusWorkItem={focusWorkItem}
+        onDeduplicate={() => deduplicateMutation.mutate()}
+        onNormalizeRelationships={() => normalizeRelationshipsMutation.mutate()}
+        onAssignWorkItem={(item, projectId) => assignInsightMutation.mutate({ item, projectId })}
+        onPromoteIdea={(item) => promoteIdeaMutation.mutate(item)}
+      />
       <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-6">
         <label className="block text-xs font-medium text-slate-600">
           Project
@@ -403,6 +462,7 @@ export default function Graph() {
         />
       </div>
       {graph.error && <p className="text-sm text-red-700">{graph.error.message}</p>}
+      {insights.error && <p className="text-sm text-red-700">{insights.error.message}</p>}
       {editMutation.error && <p className="text-sm text-red-700">{editMutation.error.message}</p>}
       {relationshipMutation.error && <p className="text-sm text-red-700">{relationshipMutation.error.message}</p>}
     </section>
@@ -430,6 +490,167 @@ function passesGraphFilters(
   if (filters.dateFromFilter && (!sourceDate || sourceDate < filters.dateFromFilter)) return false;
   if (filters.dateToFilter && (!sourceDate || sourceDate > filters.dateToFilter)) return false;
   return true;
+}
+
+function GraphifyInsightsPanel({
+  insights,
+  isLoading,
+  error,
+  projectOptions,
+  isApplyingCleanup,
+  isAssigning,
+  isPromotingIdea,
+  onFocusNode,
+  onFocusWorkItem,
+  onDeduplicate,
+  onNormalizeRelationships,
+  onAssignWorkItem,
+  onPromoteIdea
+}: {
+  insights: GraphInsightsResponse | null;
+  isLoading: boolean;
+  error?: string;
+  projectOptions: { id: string; label: string }[];
+  isApplyingCleanup: boolean;
+  isAssigning: boolean;
+  isPromotingIdea: boolean;
+  onFocusNode: (nodeId: string | null) => void;
+  onFocusWorkItem: (item: GraphInsightsResponse['unassigned_work_items'][number]) => void;
+  onDeduplicate: () => void;
+  onNormalizeRelationships: () => void;
+  onAssignWorkItem: (item: GraphInsightsResponse['unassigned_work_items'][number], projectId: string) => void;
+  onPromoteIdea: (item: GraphInsightsResponse['unassigned_work_items'][number]) => void;
+}) {
+  const riskyProjects = insights?.project_summaries.filter((project) => project.risk_flags.length > 0).slice(0, 4) ?? [];
+  const hasInsights = Boolean(
+    insights &&
+      (insights.duplicate_candidates.length ||
+        insights.relationship_normalizations.length ||
+        insights.unassigned_work_items.length ||
+        riskyProjects.length)
+  );
+
+  return (
+    <section className="rounded-md border border-sky-200 bg-sky-50 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-sky-950">
+          <Sparkles size={16} />
+          Graphify Insights
+        </div>
+        {insights && (
+          <div className="text-xs text-sky-800">
+            {insights.duplicate_candidates.length} duplicates | {insights.unassigned_work_items.length} unassigned | {riskyProjects.length} project flags
+          </div>
+        )}
+      </div>
+      {isLoading && <p className="text-sm text-sky-800">Analyzing graph...</p>}
+      {error && <p className="text-sm text-red-700">{error}</p>}
+      {!isLoading && !error && !hasInsights && <p className="text-sm text-sky-800">No cleanup or project-health insights found.</p>}
+      {hasInsights && insights && (
+        <div className="grid gap-3 lg:grid-cols-4">
+          <InsightBlock title="Possible Duplicates">
+            {insights.duplicate_candidates.length > 0 && (
+              <button
+                type="button"
+                onClick={onDeduplicate}
+                disabled={isApplyingCleanup}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-sky-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+              >
+                {isApplyingCleanup ? <Loader2 size={14} className="animate-spin" /> : <GitMerge size={14} />}
+                Merge known duplicates
+              </button>
+            )}
+            {insights.duplicate_candidates.slice(0, 4).map((candidate) => (
+              <button
+                key={`${candidate.node_type}:${candidate.node_ids.join('|')}`}
+                type="button"
+                onClick={() => onFocusNode(candidate.node_ids[0] ?? null)}
+                className="block w-full rounded-md border border-sky-100 bg-white px-2 py-1.5 text-left text-xs text-slate-700 hover:bg-sky-100"
+              >
+                <span className="font-medium">{candidate.node_type}</span>: {candidate.labels.join(' / ')}
+              </button>
+            ))}
+          </InsightBlock>
+          <InsightBlock title="Relationship Cleanup">
+            {insights.relationship_normalizations.length > 0 && (
+              <button
+                type="button"
+                onClick={onNormalizeRelationships}
+                disabled={isApplyingCleanup}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-sky-900 px-2 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+              >
+                {isApplyingCleanup ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Normalize labels
+              </button>
+            )}
+            {insights.relationship_normalizations.slice(0, 4).map((item) => (
+              <div key={`${item.original_type}:${item.normalized_type}`} className="rounded-md border border-sky-100 bg-white px-2 py-1.5 text-xs text-slate-700">
+                <span className="font-medium">{item.original_type}</span> -&gt; {item.normalized_type}
+                <span className="ml-1 text-slate-500">({item.count})</span>
+              </div>
+            ))}
+          </InsightBlock>
+          <InsightBlock title="Unassigned Work">
+            {insights.unassigned_work_items.slice(0, 4).map((item) => (
+              <div key={`${item.type}:${item.id}`} className="rounded-md border border-sky-100 bg-white p-2 text-xs text-slate-700">
+                <button type="button" onClick={() => onFocusWorkItem(item)} className="block w-full text-left hover:text-sky-800">
+                  <span className="font-medium">{item.type}</span>: {item.label}
+                </button>
+                <select
+                  className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  disabled={isAssigning || projectOptions.length === 0}
+                  defaultValue=""
+                  onChange={(event) => {
+                    if (event.target.value) onAssignWorkItem(item, event.target.value);
+                    event.currentTarget.value = '';
+                  }}
+                >
+                  <option value="">Assign to project...</option>
+                  {projectOptions.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.label}
+                    </option>
+                  ))}
+                </select>
+                {item.type === 'idea' && (
+                  <button
+                    type="button"
+                    onClick={() => onPromoteIdea(item)}
+                    disabled={isPromotingIdea}
+                    className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-md border border-sky-200 px-2 py-1 text-xs text-sky-900 hover:bg-sky-50 disabled:opacity-50"
+                  >
+                    {isPromotingIdea ? <Loader2 size={12} className="animate-spin" /> : <CheckSquare size={12} />}
+                    Make task
+                  </button>
+                )}
+              </div>
+            ))}
+          </InsightBlock>
+          <InsightBlock title="Project Flags">
+            {riskyProjects.map((project) => (
+              <div key={project.project_id} className="rounded-md border border-sky-100 bg-white px-2 py-1.5 text-xs text-slate-700">
+                <div className="font-medium">{project.name}</div>
+                <div className="text-slate-500">{project.risk_flags.map(formatRiskFlag).join(', ')}</div>
+              </div>
+            ))}
+          </InsightBlock>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function InsightBlock({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-sky-900">{title}</div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function formatRiskFlag(flag: string) {
+  return flag.replace(/_/g, ' ');
 }
 
 function GraphDetailDrawer({
@@ -739,8 +960,17 @@ async function runGraphCleanup(action: CleanupAction) {
   throw new Error('This graph cleanup action is not supported for the selected node.');
 }
 
+async function assignInsightWorkItem(item: GraphInsightsResponse['unassigned_work_items'][number], projectId: string) {
+  if (item.type === 'task') return patchTask(item.id, { project_id: projectId });
+  if (item.type === 'idea') return patchIdea(item.id, { project_id: projectId });
+  if (item.type === 'decision') return patchDecision(item.id, { project_id: projectId });
+  if (item.type === 'question') return patchQuestion(item.id, { project_id: projectId });
+  throw new Error('This insight item cannot be assigned to a project.');
+}
+
 function invalidateGraphData(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['graph'] });
+  queryClient.invalidateQueries({ queryKey: ['graph-insights'] });
   queryClient.invalidateQueries({ queryKey: ['projects'] });
   queryClient.invalidateQueries({ queryKey: ['memories'] });
   queryClient.invalidateQueries({ queryKey: ['items'] });

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models import Decision, Idea, OpenQuestion, Project, Task
+from app.services.project_brief_service import ProjectBriefService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -28,6 +29,14 @@ def get_project(project_id: str, db: Session = Depends(get_db)) -> dict:
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"id": project.id, "name": project.name, "description": project.description, "created_at": project.created_at.isoformat()}
+
+
+@router.get("/{project_id}/brief")
+def get_project_brief(project_id: str, db: Session = Depends(get_db)) -> dict:
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return ProjectBriefService(db).build(project)
 
 
 @router.patch("/{project_id}")

@@ -15,6 +15,34 @@ export type OpenQuestion = {
   answered_at: string | null;
   source_raw_item_id: string;
 };
+
+export type ProjectBrief = {
+  project: Project;
+  summary: string;
+  counts: {
+    open_tasks: number;
+    active_ideas: number;
+    decisions: number;
+    open_questions: number;
+    answered_questions: number;
+  };
+  risks: string[];
+  next_actions: string[];
+  github_failures: {
+    raw_item_id: string;
+    name: string;
+    repository: string;
+    conclusion: string;
+    branch?: string | null;
+    url?: string | null;
+    source_title: string;
+  }[];
+  recent_sources: { raw_item_id: string; title: string; source_type: string; created_at: string }[];
+  open_tasks: Omit<Task, 'project_id'>[];
+  open_questions: Omit<OpenQuestion, 'project_id' | 'answer_confidence' | 'answer_sources_json' | 'answered_at'>[];
+  active_ideas: Omit<Idea, 'project_id'>[];
+  recent_decisions: Omit<Decision, 'project_id'>[];
+};
 export type Settings = {
   ollama_base_url: string;
   ollama_extraction_model: string;
@@ -40,6 +68,35 @@ export type Settings = {
     failed_count: number;
     error?: string;
   } | null;
+  gitlab_enabled: boolean;
+  gitlab_base_url: string;
+  gitlab_projects: string;
+  gitlab_auto_process: boolean;
+  gitlab_token_configured: boolean;
+  gitlab_status: string;
+  gitlab_last_sync: {
+    status: string;
+    synced_at: string;
+    imported_count: number;
+    skipped_count: number;
+    queued_count: number;
+    failed_count: number;
+    error?: string;
+  } | null;
+  github_enabled: boolean;
+  github_repositories: string;
+  github_auto_process: boolean;
+  github_token_configured: boolean;
+  github_status: string;
+  github_last_sync: {
+    status: string;
+    synced_at: string;
+    imported_count: number;
+    skipped_count: number;
+    queued_count: number;
+    failed_count: number;
+    error?: string;
+  } | null;
 };
 
 export type OllamaModelInfo = {
@@ -62,6 +119,8 @@ export type OllamaModelsResponse = {
 };
 
 export const listProjects = () => api<Project[]>('/projects');
+export const getProject = (projectId: string) => api<Project>(`/projects/${projectId}`);
+export const getProjectBrief = (projectId: string) => api<ProjectBrief>(`/projects/${projectId}/brief`);
 export const patchProject = (projectId: string, payload: { name?: string; description?: string | null }) =>
   api<Project>(`/projects/${projectId}`, {
     method: 'PATCH',
@@ -74,7 +133,7 @@ export const listDecisions = () => api<Decision[]>('/decisions');
 export const listOpenQuestions = (showArchived = false) => api<OpenQuestion[]>(`/open-questions?show_archived=${showArchived}`);
 export const getSettings = () => api<Settings>('/settings');
 export const listOllamaModels = () => api<OllamaModelsResponse>('/settings/ollama/models');
-export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder' | 'ollama_extraction_model' | 'ollama_embedding_model' | 'gmail_enabled' | 'gmail_label' | 'gmail_query' | 'gmail_auto_process'>>) =>
+export const patchSettings = (payload: Partial<Pick<Settings, 'inbox_folder' | 'ollama_extraction_model' | 'ollama_embedding_model' | 'gmail_enabled' | 'gmail_label' | 'gmail_query' | 'gmail_auto_process' | 'gitlab_enabled' | 'gitlab_base_url' | 'gitlab_projects' | 'gitlab_auto_process' | 'github_enabled' | 'github_repositories' | 'github_auto_process'>> & { gitlab_token?: string; github_token?: string }) =>
   api<Settings>('/settings', {
     method: 'PATCH',
     body: JSON.stringify(payload)

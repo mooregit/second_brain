@@ -1,0 +1,21 @@
+# Copy to ~/.config/secondbrain/agents/codex.yml for user-level defaults.
+# Repo-specific settings can live in a project root .secondbrain.yml.
+
+api_url: http://localhost:8000
+default_project: Second Brain
+write_requires_yes: true
+state_file: .secondbrain-agent-state.json
+
+context_sections:
+  - project_brief
+  - open_tasks
+  - open_questions
+  - recent_decisions
+  - active_ideas
+  - recent_sources
+
+prompt_targets:
+  - codex
+  - claude
+  - chatgpt
+  - generic

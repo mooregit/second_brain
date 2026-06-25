@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "secondbrain": {
+      "command": "python3",
+      "args": [
+        "${SECOND_BRAIN_AGENT_DIR}/mcp/secondbrain_mcp_server.py",
+        "--mode",
+        "read-only"
+      ],
+      "env": {
+        "SECONDBRAIN_API_URL": "http://localhost:8000",
+        "SECONDBRAIN_MCP_MODE": "read-only",
+        "SECONDBRAIN_MCP_ALLOW_WRITES": "false"
+      }
+    }
+  }
+}

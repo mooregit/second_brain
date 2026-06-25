@@ -6,6 +6,7 @@ import Ask from './pages/Ask';
 import Graph from './pages/Graph';
 import Memories from './pages/Memories';
 import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 import Ideas from './pages/Ideas';
 import Tasks from './pages/Tasks';
 import Decisions from './pages/Decisions';
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/items/:id" element={<ItemDetail />} />
           <Route path="/memories" element={<Memories />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/ideas" element={<Ideas />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/decisions" element={<Decisions />} />

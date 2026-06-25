@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import ask, decisions, gmail, graph, ideas, items, memories, processing_runs, projects, questions, settings, tasks
+from app.api.routes import ask, decisions, github, gitlab, gmail, graph, ideas, items, memories, processing_runs, projects, questions, settings, tasks
 
 app = FastAPI(title="Second Brain Inbox", version="0.1.0")
 
@@ -30,3 +30,5 @@ app.include_router(graph.router)
 app.include_router(processing_runs.router)
 app.include_router(settings.router)
 app.include_router(gmail.router)
+app.include_router(gitlab.router)
+app.include_router(github.router)

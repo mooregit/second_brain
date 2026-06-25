@@ -1,0 +1,14 @@
+# Copy this file to a repository root as .secondbrain.yml.
+# It lets agent scripts map the repo to the right Second Brain project.
+
+default_project: Second Brain
+write_requires_yes: true
+
+search_tags:
+  - second-brain
+
+allowed_writes:
+  - tasks
+  - questions
+  - decisions
+  - sessions

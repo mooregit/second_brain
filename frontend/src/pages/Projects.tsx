@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { Project, deleteProject, listProjects, patchProject } from '../api/views';
 
@@ -47,7 +48,9 @@ export default function Projects() {
                   <textarea className="h-20 w-full rounded-md border border-slate-300 px-2 py-1 text-sm" value={descriptionDraft} onChange={(event) => setDescriptionDraft(event.target.value)} placeholder="Description" />
                 </div>
               ) : (
-                <h2 className="font-semibold">{project.name}</h2>
+                <Link to={`/projects/${project.id}`} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
+                  {project.name}
+                </Link>
               )}
               <div className="flex shrink-0 items-center gap-1">
                 {editingProjectId === project.id ? (

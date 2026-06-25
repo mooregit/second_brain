@@ -17,6 +17,7 @@ export type TaskCreate = {
   description?: string | null;
   priority?: string | null;
   status?: string;
+  project_id?: string | null;
 };
 
 export type IdeaPatch = {
