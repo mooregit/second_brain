@@ -15,8 +15,8 @@ class RawItemOut(BaseModel):
     body_text: str
     content_type: str
     status: str
+    metadata_json: dict | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-

@@ -468,6 +468,17 @@ Supported upload and folder-scan formats:
 
 Uploaded files are copied under `data/uploads/` and linked as `FileAsset` records. PDF uploads keep the original PDF and store extracted text in the `RawItem` so the normal processing pipeline can extract memories, tasks, ideas, decisions, open questions, tags, and graph relationships.
 
+PDF uploads return after the original file is stored, then text extraction and chunking run in the background. The parent Inbox item is marked `extracting` while text is pulled from the PDF. When chunking succeeds, the parent is marked `chunked` and page-aware `pdf_chunk` source records are queued for extraction with page start/end metadata. Chunk records are hidden from the normal Inbox list but remain available to extraction, embeddings, Ask, and graph/source tracing.
+
+Docker Compose includes a `worker` service that drains queued extraction runs. Keep the worker running for PDF chunks, Gmail imports, GitHub/GitLab imports, and other queued processing to finish. The worker processes one queued run at a time by default to avoid overloading the local Ollama model.
+
+The default max upload size is 100 MB. This is enforced in two places:
+
+- nginx: `client_max_body_size 100m` in `docker/nginx/default.conf`
+- backend: `MAX_UPLOAD_BYTES=104857600`
+
+If you raise the limit, keep both values aligned and rebuild/restart the containers. A browser `413 Request Entity Too Large` response means nginx rejected the upload before the backend received it.
+
 Scanned/image-only PDFs are not OCRed yet. For those, export or OCR the PDF to selectable text first, then upload or drop it into the inbox folder.
 
 ### Folder Inbox

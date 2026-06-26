@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from app.core.database import SessionLocal
 from app.services.gmail_poller import GmailPoller
@@ -21,3 +22,31 @@ def run_once() -> dict:
         }
 
     return asyncio.run(_run())
+
+
+def run_forever() -> None:
+    poll_seconds = float(os.environ.get("WORKER_POLL_SECONDS", "5"))
+    queue_limit = int(os.environ.get("PROCESSING_QUEUE_LIMIT", "1"))
+
+    async def _loop() -> None:
+        while True:
+            db = SessionLocal()
+            try:
+                queue = ProcessingQueueService(db)
+                stale_runs = queue.requeue_stale_processing()
+                if stale_runs:
+                    print(f"Requeued {len(stale_runs)} stale runs: {[run.id for run in stale_runs]}", flush=True)
+                processed_runs = await queue.process_pending(limit=queue_limit)
+                if processed_runs:
+                    print(f"Processed {len(processed_runs)} queued runs: {[run.id for run in processed_runs]}", flush=True)
+            except Exception as exc:
+                print(f"Worker loop error: {exc}", flush=True)
+            finally:
+                db.close()
+            await asyncio.sleep(poll_seconds)
+
+    asyncio.run(_loop())
+
+
+if __name__ == "__main__":
+    run_forever()

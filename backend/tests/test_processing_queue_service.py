@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Generator
+from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -83,6 +84,26 @@ def test_process_pending_uses_extraction_service_run(db_session: Session, monkey
     assert [item.id for item in processed] == [run.id]
     assert db_session.get(ProcessingRun, run.id).status == "succeeded"
     assert db_session.get(RawItem, item.id).status == "processed"
+
+
+def test_requeue_stale_processing_marks_run_pending(db_session: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    class QueueSettings:
+        processing_stale_minutes = 60
+
+    item = _item(db_session)
+    service = ProcessingQueueService(db_session)
+    run = service.enqueue_item(item.id)
+    run.status = "processing"
+    run.started_at = datetime.utcnow() - timedelta(hours=2)
+    item.status = "processing"
+    db_session.commit()
+    monkeypatch.setattr("app.services.processing_queue_service.get_settings", lambda: QueueSettings())
+
+    stale_runs = service.requeue_stale_processing()
+
+    assert [stale.id for stale in stale_runs] == [run.id]
+    assert db_session.get(ProcessingRun, run.id).status == "pending"
+    assert db_session.get(RawItem, item.id).status == "pending"
 
 
 def _item(db_session: Session) -> RawItem:

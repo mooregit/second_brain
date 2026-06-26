@@ -9,6 +9,7 @@ export type RawItem = {
   status: string;
   created_at: string;
   updated_at: string;
+  metadata_json: Record<string, unknown> | null;
 };
 
 export type Memory = {
@@ -75,6 +76,11 @@ export type ItemDetailResponse = {
   item: RawItem;
   latest_processing_run: ProcessingRun | null;
   file_assets: FileAsset[];
+  document_chunks: {
+    item: RawItem;
+    latest_processing_run: ProcessingRun | null;
+    memories: Memory[];
+  }[];
   memories: Memory[];
 };
 
@@ -120,6 +126,10 @@ export function getItem(id: string) {
 
 export function processItem(id: string) {
   return api<{ run_id: string; status: string; raw_item_status: string }>(`/items/${id}/process`, { method: 'POST' });
+}
+
+export function generateBookBrief(id: string) {
+  return api<{ run_id: string; status: string }>(`/items/${id}/book-brief`, { method: 'POST' });
 }
 
 export function cancelProcessingRun(id: string) {

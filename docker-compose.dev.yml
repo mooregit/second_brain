@@ -37,6 +37,7 @@ services:
       GMAIL_TOKEN_PATH: ${GMAIL_TOKEN_PATH:-../data/gmail/token.json}
       GMAIL_OAUTH_PORT: ${GMAIL_OAUTH_PORT:-8090}
       UPLOADS_FOLDER: ${UPLOADS_FOLDER:-../data/uploads}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-104857600}
       MEDIA_ARTIFACTS_FOLDER: ${MEDIA_ARTIFACTS_FOLDER:-../data/media}
       MEDIA_TRANSCRIPTION_BACKEND: ${MEDIA_TRANSCRIPTION_BACKEND:-faster-whisper}
       MEDIA_TRANSCRIPTION_MODEL: ${MEDIA_TRANSCRIPTION_MODEL:-base}
@@ -68,6 +69,33 @@ services:
     ports:
       - "${FRONTEND_PORT:-5174}:5173"
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-secondbrain}:${POSTGRES_PASSWORD:-secondbrain}@db:5432/${POSTGRES_DB:-second_brain}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_EXTRACTION_MODEL: ${OLLAMA_EXTRACTION_MODEL:-qwen3:8b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      INBOX_FOLDER: /app/data/inbox
+      UPLOADS_FOLDER: ${UPLOADS_FOLDER:-../data/uploads}
+      MEDIA_ARTIFACTS_FOLDER: ${MEDIA_ARTIFACTS_FOLDER:-../data/media}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-5}
+      PROCESSING_QUEUE_LIMIT: ${PROCESSING_QUEUE_LIMIT:-1}
+      PROCESSING_STALE_MINUTES: ${PROCESSING_STALE_MINUTES:-120}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+    command: python -m app.workers.simple_worker
 
   web:
     image: nginx:1.27-alpine

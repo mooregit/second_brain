@@ -48,3 +48,4 @@ Required schema:
 If the invalid output has task strings, convert each string into a task object with that string as `title`.
 If the invalid output has a `title` but no `summary`, use the title as the summary.
 If confidence is missing, choose a reasonable value between 0 and 1.
+If the invalid output is a glossary, study guide, course note, or reference summary with headings and defined terms, preserve the summary but also extract broad headings as `tags`, important defined terms as `entities`, and category-to-term `relationships` using relationship "includes".

@@ -218,8 +218,8 @@ class GraphService:
                         GraphNode(
                             id=fallback_source_node_id,
                             type="source",
-                            label=raw_item.title if raw_item else "Source note",
-                            metadata={"raw_item_id": memory.raw_item_id, **self._source_metadata(memory.raw_item_id)},
+                            label=self._source_label(memory.raw_item_id),
+                            metadata={"raw_item_id": self._graph_source_raw_item_id(memory.raw_item_id), **self._source_metadata(memory.raw_item_id)},
                         ),
                     )
                     edge_id = f"source-tag:{memory.raw_item_id}:{tag.id}"
@@ -295,7 +295,7 @@ class GraphService:
         return normalized
 
     def _source_node_id(self, raw_item_id: str) -> str:
-        return f"source:{raw_item_id}"
+        return f"source:{self._graph_source_raw_item_id(raw_item_id)}"
 
     def _ensure_project_node(self, nodes: dict[str, GraphNode], project_nodes: dict[str, GraphNode], project_node_id: str) -> None:
         if project_node_id in project_nodes:
@@ -310,11 +310,11 @@ class GraphService:
         project_nodes: dict[str, GraphNode],
         project_node_by_label: dict[str, str],
     ) -> None:
-        raw_item = self.db.get(RawItem, raw_item_id)
+        source_item = self._graph_source_item(raw_item_id)
         target_node = nodes.get(target_node_id)
-        if raw_item and target_node and self._normalize_label(raw_item.title) == self._normalize_label(target_node.label):
+        if source_item and target_node and self._normalize_label(source_item.title) == self._normalize_label(target_node.label):
             return
-        source_node_id = self._project_node_id_for_source(raw_item, project_nodes, project_node_by_label) or self._source_node_id(raw_item_id)
+        source_node_id = self._project_node_id_for_source(source_item, project_nodes, project_node_by_label) or self._source_node_id(raw_item_id)
         if source_node_id in project_nodes:
             self._ensure_project_node(nodes, project_nodes, source_node_id)
         else:
@@ -323,8 +323,8 @@ class GraphService:
                 GraphNode(
                     id=source_node_id,
                     type="source",
-                    label=raw_item.title if raw_item else "Source note",
-                    metadata={"raw_item_id": raw_item_id, **self._source_metadata(raw_item_id)},
+                    label=self._source_label(raw_item_id),
+                    metadata={"raw_item_id": self._graph_source_raw_item_id(raw_item_id), **self._source_metadata(raw_item_id)},
                 ),
             )
         if source_node_id == target_node_id:
@@ -376,7 +376,7 @@ class GraphService:
 
     def _source_title(self, raw_item_id: str, source_title_by_id: dict[str, str]) -> str | None:
         if raw_item_id not in source_title_by_id:
-            raw_item = self.db.get(RawItem, raw_item_id)
+            raw_item = self._graph_source_item(raw_item_id)
             source_title_by_id[raw_item_id] = raw_item.title if raw_item else ""
         return source_title_by_id[raw_item_id] or None
 
@@ -384,10 +384,48 @@ class GraphService:
         raw_item = self.db.get(RawItem, raw_item_id)
         if not raw_item:
             return {}
-        return {
-            "source_type": raw_item.source_type,
-            "source_created_at": raw_item.created_at.isoformat(),
+        source_item = self._graph_source_item(raw_item_id) or raw_item
+        metadata = {
+            "source_type": source_item.source_type,
+            "source_created_at": source_item.created_at.isoformat(),
         }
+        if source_item.id != raw_item.id:
+            metadata.update(
+                {
+                    "chunk_raw_item_id": raw_item.id,
+                    "chunk_source_type": raw_item.source_type,
+                    "chunk_source_created_at": raw_item.created_at.isoformat(),
+                }
+            )
+            if isinstance(raw_item.metadata_json, dict):
+                metadata.update(
+                    {
+                        "chunk_index": raw_item.metadata_json.get("chunk_index"),
+                        "chunk_page_start": raw_item.metadata_json.get("page_start"),
+                        "chunk_page_end": raw_item.metadata_json.get("page_end"),
+                    }
+                )
+        return metadata
+
+    def _source_label(self, raw_item_id: str) -> str:
+        raw_item = self._graph_source_item(raw_item_id)
+        return raw_item.title if raw_item else "Source note"
+
+    def _graph_source_raw_item_id(self, raw_item_id: str) -> str:
+        raw_item = self._graph_source_item(raw_item_id)
+        return raw_item.id if raw_item else raw_item_id
+
+    def _graph_source_item(self, raw_item_id: str) -> RawItem | None:
+        raw_item = self.db.get(RawItem, raw_item_id)
+        if not raw_item:
+            return None
+        if raw_item.source_type == "pdf_chunk" and isinstance(raw_item.metadata_json, dict):
+            parent_raw_item_id = raw_item.metadata_json.get("parent_raw_item_id")
+            if isinstance(parent_raw_item_id, str) and parent_raw_item_id:
+                parent = self.db.get(RawItem, parent_raw_item_id)
+                if parent:
+                    return parent
+        return raw_item
 
     def _memory_tags(self, memory_id: str, tags_by_memory_id: dict[str, list[str]]) -> list[str]:
         if memory_id not in tags_by_memory_id:

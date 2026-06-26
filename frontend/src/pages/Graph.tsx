@@ -155,15 +155,13 @@ export default function Graph() {
   const visibleNodes = graph.data?.nodes.filter((node) => visibleTypes.has(node.type) && visibleNodeIds.has(node.id)) ?? [];
   const orphanNodes = useMemo(() => {
     if (!graph.data) return [];
-    const renderedNodeIds = new Set(visibleNodes.map((node) => node.id));
     const connectedNodeIds = new Set<string>();
-    for (const edge of visibleGraphEdges) {
-      if (!renderedNodeIds.has(edge.source) || !renderedNodeIds.has(edge.target)) continue;
+    for (const edge of graph.data.edges) {
       connectedNodeIds.add(edge.source);
       connectedNodeIds.add(edge.target);
     }
     return visibleNodes.filter((node) => defaultTypes.includes(node.type) && !connectedNodeIds.has(node.id));
-  }, [graph.data, visibleGraphEdges, visibleNodes]);
+  }, [graph.data, visibleNodes]);
 
   function selectNode(nodeId: string | null) {
     const node = graph.data?.nodes.find((candidate) => candidate.id === nodeId);
@@ -321,7 +319,7 @@ export default function Graph() {
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="text-sm font-medium text-amber-950">Needs connection</div>
-            <div className="text-xs text-amber-800">{orphanNodes.length} visible work nodes are not connected in this view.</div>
+            <div className="text-xs text-amber-800">{orphanNodes.length} visible work nodes have no graph connections.</div>
           </div>
           <div className="flex flex-wrap gap-2">
             {orphanNodes.slice(0, 10).map((node) => (

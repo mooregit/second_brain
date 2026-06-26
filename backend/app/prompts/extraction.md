@@ -5,9 +5,16 @@ Rules:
 - Use null for unknown optional values.
 - Use ISO date strings only when dates are explicit or clearly inferable from context.
 - Include confidence values from 0 to 1.
+- Return the JSON object directly. Do not explain the source material to the user.
 - For emails, treat sender names, signatures, and sign-offs as source metadata unless they are explicitly part of the requested work.
 - Do not turn a sender signature into a person, tag, entity, project, or relationship.
 - If an email only contains a subject and a URL, use the subject as the main memory and the URL as a resource/entity; do not infer extra people from the signature.
+- For reference documents, glossaries, course notes, study guides, and PDFs that define many concepts:
+  - Use memory_type "resource" or "file".
+  - Add broad category names as tags.
+  - Add important defined terms as entities.
+  - Add relationships from category tags to terms using relationship "includes".
+  - Do not create tasks unless the source explicitly asks for action.
 
 Schema:
 {
@@ -128,6 +135,42 @@ Output:
   ],
   "suggested_actions": ["Define which port and Docker commands should be displayed"],
   "confidence": 0.74
+}
+
+Input:
+A study guide lists Selection Sort, Binary Search, Merge Sort, Stack, Queue, Supervised Learning, Neural Networks, Symmetric Encryption, TF-IDF, Topic Modeling, TensorFlow, and RDD.
+
+Output:
+{
+  "summary": "Study guide covering algorithms, machine learning, cryptography, natural language processing, and big data concepts.",
+  "memory_type": "resource",
+  "projects": [],
+  "people": [],
+  "tasks": [],
+  "ideas": [],
+  "decisions": [],
+  "open_questions": [],
+  "tags": ["Algorithms & Data Structures", "Machine Learning", "Cryptography & Security", "Data Analysis & NLP", "Big Data & Data Mining", "Computing & Frameworks"],
+  "entities": ["Selection Sort", "Binary Search", "Merge Sort", "Stack", "Queue", "Supervised Learning", "Neural Networks", "Symmetric Encryption", "TF-IDF", "Topic Modeling", "TensorFlow", "RDD"],
+  "relationships": [
+    {
+      "source": "Algorithms & Data Structures",
+      "target": "Selection Sort",
+      "relationship": "includes"
+    },
+    {
+      "source": "Machine Learning",
+      "target": "Neural Networks",
+      "relationship": "includes"
+    },
+    {
+      "source": "Data Analysis & NLP",
+      "target": "Topic Modeling",
+      "relationship": "includes"
+    }
+  ],
+  "suggested_actions": [],
+  "confidence": 0.76
 }
 
 Title: {{title}}

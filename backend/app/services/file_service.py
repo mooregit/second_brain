@@ -2,6 +2,7 @@ import hashlib
 from io import BytesIO
 from pathlib import Path
 from re import sub
+from typing import TypedDict
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +10,18 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models import FileAsset, RawItem
 from app.services.settings_service import SettingsService
+
+
+class PdfPage(TypedDict):
+    page_number: int
+    text: str
+
+
+class DocumentChunk(TypedDict):
+    chunk_index: int
+    page_start: int
+    page_end: int
+    text: str
 
 
 class FileService:
@@ -46,6 +59,10 @@ class FileService:
         return body_text, content_type
 
     def extract_pdf_text(self, content: bytes) -> str:
+        pages = self.extract_pdf_pages(content)
+        return "\n\n".join(page["text"].strip() for page in pages if page["text"].strip()).strip()
+
+    def extract_pdf_pages(self, content: bytes) -> list[PdfPage]:
         try:
             from pypdf import PdfReader
         except ImportError as exc:
@@ -53,13 +70,48 @@ class FileService:
 
         try:
             reader = PdfReader(BytesIO(content))
-            pages = [page.extract_text() or "" for page in reader.pages]
+            pages = []
+            for index, page in enumerate(reader.pages):
+                text = page.extract_text() or ""
+                if text.strip():
+                    pages.append({"page_number": index + 1, "text": text})
         except Exception as exc:
             raise ValueError("Could not read PDF text") from exc
-        text = "\n\n".join(page.strip() for page in pages if page.strip()).strip()
-        if not text:
+        if not pages:
             raise ValueError("No selectable text found in PDF; OCR is not supported yet")
-        return text
+        return pages
+
+    def chunk_pdf_pages(self, pages: list[PdfPage], max_chars: int | None = None) -> list[DocumentChunk]:
+        limit = max_chars or get_settings().document_chunk_chars
+        chunks: list[DocumentChunk] = []
+        current_text: list[str] = []
+        current_start: int | None = None
+        current_end: int | None = None
+
+        def flush() -> None:
+            nonlocal current_text, current_start, current_end
+            text = "\n\n".join(current_text).strip()
+            if not text or current_start is None or current_end is None:
+                return
+            chunks.append({"chunk_index": len(chunks) + 1, "page_start": current_start, "page_end": current_end, "text": text})
+            current_text = []
+            current_start = None
+            current_end = None
+
+        for page in pages:
+            page_number = page["page_number"]
+            page_text = page["text"].strip()
+            if not page_text:
+                continue
+            page_block = f"Page {page_number}\n\n{page_text}"
+            if current_text and sum(len(part) for part in current_text) + len(page_block) > limit:
+                flush()
+            if current_start is None:
+                current_start = page_number
+            current_end = page_number
+            current_text.append(page_block)
+        flush()
+        return chunks
 
     def scan_inbox_folder(self) -> dict:
         folder = Path(SettingsService(self.db).get_inbox_folder()).expanduser()

@@ -131,7 +131,7 @@
 - [ ] Add a reprocess failed ingestions workflow that finds failed raw items/imports, shows the connector/source error, and retries ingestion or queues extraction again.
 - [ ] Improve extraction diagnostics with prompt input/context, transcript context, raw model output, repaired output, validation errors, and parsed JSON.
 - [ ] Add "reprocess with edited context" from item detail.
-- [ ] Fix large file upload handling for PDFs and other documents: raise nginx `client_max_body_size`, align backend upload limits, show a clear UI error for 413 responses, and document the configured max upload size.
+- [x] Fix large file upload handling for PDFs and other documents: raise nginx `client_max_body_size`, align backend upload limits, show a clear UI error for 413 responses, and document the configured max upload size.
 - [ ] Add duplicate detection for projects, tags, people, URLs, and entities.
 - [ ] Add merge UI for duplicate projects, tags, people, URLs, and entities.
 - [ ] Add stronger project detail pages with timeline, source notes/emails/files, open tasks, questions, decisions, ideas, and a related graph slice.
@@ -146,6 +146,16 @@
 - [ ] Let Ask create follow-up tasks, open questions, decisions, or notes from an answer.
 - [ ] Let useful Ask answers be saved as memories or decisions.
 - [ ] Add Ask answer feedback so bad retrieval/extraction examples can be diagnosed later.
+
+## Tag And Topic Taxonomy
+
+- [ ] Treat tags as a curated finite topic vocabulary that can be referenced by AI tools, graph views, Ask filters, and project briefs.
+- [ ] Add tag/topic review workflow for approving, merging, renaming, archiving, and describing canonical topics.
+- [ ] Add a Topics management page with tag search, usage counts, rename/delete controls, and links to the Knowledge graph filtered by topic.
+- [ ] Add tag suggestions that map noisy extraction tags into existing canonical topics before creating new tags.
+- [ ] Store topic metadata such as description, aliases, parent topic, related topics, source count, and last-used timestamp.
+- [ ] Add Graphify insights for over-specific tags, duplicate tags, unused tags, and memories that need topic assignment.
+- [ ] Let Ask and agent prompts include canonical topics as context anchors with source-linked examples.
 
 ## Action Items And Prompt Generation
 
@@ -191,7 +201,10 @@
 - [x] Add PDF import with text extraction first, OCR later.
 - [ ] Add `.epub` upload/import support with text extraction, metadata preservation, and chapter-aware source records.
 - [ ] Add ebook import with text extraction first.
+- [x] Add first-pass long-document PDF ingestion that splits uploaded PDFs into page-aware chunk source records and queues each chunk for extraction.
 - [ ] Add long-document/book ingestion with document metadata, section/chapter/page chunking, per-chunk embeddings, staged extraction, and source-linked book notes.
+- [x] After long PDF/book chunks finish, create a parent-level "Book Brief" that merges chunk memories into core ideas, key concepts, chapter/section summaries, and source-linked study notes.
+- [ ] Add graph linking for long documents so chunk-created nodes attach to the parent document, parent Book Brief, canonical topics, and extracted cross-chapter relationships instead of appearing as isolated nodes.
 - [ ] Add OCR for scanned PDFs/images later.
 - [ ] Add Google Sheets ingestion:
   - Snapshot import for selected spreadsheet tabs/ranges.

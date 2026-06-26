@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.models import ProcessingRun, RawItem
 from app.services.extraction_service import ExtractionService
@@ -71,6 +72,7 @@ class ProcessingQueueService:
         return run
 
     async def process_pending(self, limit: int = 1) -> list[ProcessingRun]:
+        self.requeue_stale_processing()
         runs = self.db.scalars(
             select(ProcessingRun).where(ProcessingRun.status == "pending").order_by(ProcessingRun.started_at).limit(limit)
         ).all()
@@ -80,6 +82,21 @@ class ProcessingQueueService:
             if result:
                 processed.append(result)
         return processed
+
+    def requeue_stale_processing(self) -> list[ProcessingRun]:
+        cutoff = datetime.utcnow() - timedelta(minutes=get_settings().processing_stale_minutes)
+        runs = self.db.scalars(
+            select(ProcessingRun).where(ProcessingRun.status == "processing", ProcessingRun.started_at < cutoff)
+        ).all()
+        for run in runs:
+            run.status = "pending"
+            run.error = "Requeued after stale processing timeout."
+            item = self.db.get(RawItem, run.raw_item_id)
+            if item and item.status == "processing":
+                item.status = "pending"
+        if runs:
+            self.db.commit()
+        return runs
 
     def cancel_run(self, run_id: str) -> ProcessingRun:
         run = self.db.get(ProcessingRun, run_id)

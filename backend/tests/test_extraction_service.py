@@ -99,6 +99,74 @@ def test_normalize_extraction_payload_summarizes_alternate_list_shape(db_session
     assert result.relationships[0].relationship == "automate"
 
 
+def test_enrich_sparse_knowledge_result_extracts_topics_from_glossary_summary(db_session: Session) -> None:
+    item = RawItem(source_type="upload", title="study-guide.pdf", body_text="")
+    result = ExtractionResult.model_validate(
+        {
+            "summary": """
+### **Algorithms & Data Structures**
+- **Selection Sort**: Finds the minimum element repeatedly.
+- **Binary Search**: Divides a sorted array in half repeatedly.
+
+### **Machine Learning**
+- **Supervised Learning**: Learning from labeled data.
+- **Neural Networks**: Models used for pattern recognition.
+""",
+            "memory_type": "note",
+            "projects": [],
+            "people": [],
+            "tasks": [],
+            "ideas": [],
+            "decisions": [],
+            "open_questions": [],
+            "tags": [],
+            "entities": [],
+            "relationships": [],
+            "suggested_actions": [],
+            "confidence": 0.8,
+        }
+    )
+
+    enriched = ExtractionService(db_session)._enrich_sparse_knowledge_result(item, result)
+
+    assert enriched.memory_type == "resource"
+    assert enriched.tags == ["Algorithms & Data Structures", "Machine Learning"]
+    assert "Selection Sort" in enriched.entities
+    assert "Neural Networks" in enriched.entities
+    assert {relationship.source for relationship in enriched.relationships} == {"Algorithms & Data Structures", "Machine Learning"}
+    assert any(relationship.target == "Binary Search" and relationship.relationship == "includes" for relationship in enriched.relationships)
+
+
+def test_parse_extraction_output_recovers_missing_commas_between_objects(db_session: Session) -> None:
+    malformed = """
+{
+  "summary": "Chunk about algorithm tradeoffs.",
+  "memory_type": "resource",
+  "projects": [],
+  "people": [],
+  "tasks": [],
+  "ideas": [],
+  "decisions": [],
+  "open_questions": [],
+  "tags": ["algorithms", "sorting"],
+  "entities": ["Selection Sort", "Merge Sort"],
+  "relationships": [
+    {"source": "sorting", "target": "Selection Sort", "relationship": "includes"}
+    {"source": "sorting", "target": "Merge Sort", "relationship": "includes"}
+  ],
+  "suggested_actions": [],
+  "confidence": 0.74
+}
+"""
+
+    parsed = ExtractionService(db_session)._parse_extraction_output(malformed)
+    result = ExtractionResult.model_validate(ExtractionService(db_session)._normalize_extraction_payload(parsed, "Chunk"))
+
+    assert result.summary == "Chunk about algorithm tradeoffs."
+    assert result.tags == ["algorithms", "sorting"]
+    assert [relationship.target for relationship in result.relationships] == ["Selection Sort", "Merge Sort"]
+
+
 def _result(people: list[str]) -> ExtractionResult:
     return ExtractionResult.model_validate(
         {

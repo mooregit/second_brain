@@ -101,6 +101,55 @@ def test_graph_links_derived_records_to_their_source_raw_item(db_session: Sessio
     assert edge_origins["from_source"] == "source"
 
 
+def test_graph_collapses_pdf_chunk_sources_to_parent_document(db_session: Session) -> None:
+    parent = RawItem(source_type="upload", title="40algorithmseveryprogrammershouldknow.pdf", body_text="PDF parent", status="chunked")
+    db_session.add(parent)
+    db_session.flush()
+    chunk = RawItem(
+        source_type="pdf_chunk",
+        title="40algorithmseveryprogrammershouldknow.pdf pages 51-58",
+        body_text="Chunk body",
+        status="processed",
+        metadata_json={"parent_raw_item_id": parent.id, "chunk_index": 7, "page_start": 51, "page_end": 58},
+    )
+    db_session.add(chunk)
+    db_session.flush()
+    memory = Memory(
+        raw_item_id=chunk.id,
+        memory_type="note",
+        summary="Binary search and merge sort.",
+        confidence=1.0,
+        validated_json={},
+        raw_llm_output="{}",
+    )
+    tag = Tag(name="algorithms")
+    db_session.add_all([memory, tag])
+    db_session.flush()
+    memory.tags.append(tag)
+    task = Task(memory_id=memory.id, title="Review binary search notes", status="open", source_raw_item_id=chunk.id)
+    db_session.add(task)
+    db_session.commit()
+
+    graph = GraphService(db_session).build()
+    parent_source_node_id = f"source:{parent.id}"
+    chunk_source_node_id = f"source:{chunk.id}"
+    task_node = next(node for node in graph.nodes if node.id == f"task:{task.id}")
+    source_node = next(node for node in graph.nodes if node.id == parent_source_node_id)
+    edge_pairs = {(edge.source, edge.target, edge.relationship_type) for edge in graph.edges}
+
+    assert source_node.label == "40algorithmseveryprogrammershouldknow.pdf"
+    assert source_node.metadata["raw_item_id"] == parent.id
+    assert not any(node.id == chunk_source_node_id for node in graph.nodes)
+    assert task_node.metadata["raw_item_id"] == chunk.id
+    assert task_node.metadata["source_title"] == parent.title
+    assert task_node.metadata["source_type"] == "upload"
+    assert task_node.metadata["chunk_raw_item_id"] == chunk.id
+    assert task_node.metadata["chunk_page_start"] == 51
+    assert task_node.metadata["chunk_page_end"] == 58
+    assert (parent_source_node_id, f"task:{task.id}", "from_source") in edge_pairs
+    assert (parent_source_node_id, f"tag:{tag.id}", "tagged") in edge_pairs
+
+
 def test_graph_work_nodes_include_source_filter_metadata(db_session: Session) -> None:
     memory, raw_item = _memory(db_session)
     task = Task(memory_id=memory.id, title="Website needs work", status="open", source_raw_item_id=raw_item.id)

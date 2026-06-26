@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     gmail_token_path: str = "../data/gmail/token.json"
     gmail_oauth_port: int = 8090
     uploads_folder: str = "../data/uploads"
+    max_upload_bytes: int = 100 * 1024 * 1024
+    document_chunk_chars: int = 12000
+    processing_stale_minutes: int = 120
     media_artifacts_folder: str = "../data/media"
     media_transcription_backend: str = "faster-whisper"
     media_transcription_model: str = "base"
